@@ -27,21 +27,6 @@ def start_zone(zone, duration):
         + bytes([255])
     )
     write_to_serial(cmd)
-    """
-    try:
-        arduino = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
-        print(arduino)
-        arduino.flush()
-        arduino.write(cmd)
-        time.sleep(0.05)
-        data = arduino.readline()
-        print(data)
-        arduino.close()
-
-    except IOError as exc:
-        print('Caught file I/O error' + str(exc))
-        raise exc
-    """
 
 def stop_zone(zone):
     cmd = bytes([254]) + bytes([2]) + bytes([int(zone)]) + bytes([0]) + bytes([255])
@@ -50,11 +35,11 @@ def stop_zone(zone):
 
 def write_to_serial(cmd):
     try:
-        arduino = serial.Serial('/dev/ttyACM1', 9600, timeout=1)
+        arduino = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
         arduino.flush()
         arduino.write(cmd)
         logging.debug(f'Wrote {cmd} to serial')
-        time.sleep(0.05)
+        time.sleep(0.1)
         while(arduino.inWaiting() > 0):
             data = arduino.readline().decode('utf-8').rstrip()
             logging.debug(data)
@@ -63,9 +48,10 @@ def write_to_serial(cmd):
         logging.debug('Closed serial connection')
 
     except IOError as exc:
-        logging.debug(f'Caught file I/O error {str(exc)}')
+        logging.debug(f'sprinklr_serial: Caught file I/O error {str(exc)}')
         raise exc
 
+# Only for debugging
 if __name__ == "__main__":
     logging.basicConfig(filename="serial.log",
                         format='%(asctime)s %(message)s',
@@ -74,7 +60,7 @@ if __name__ == "__main__":
     logger.setLevel(logging.DEBUG)
     cmd = (
         bytes([254])
-        + bytes([6])
+        + bytes([2])
         + bytes([int(8)])
         + bytes([int(2)])
         + bytes([255])
@@ -83,7 +69,7 @@ if __name__ == "__main__":
     ser.flush()
     print(ser.name)
     ser.write(cmd)
-    time.sleep(0.05)
+    time.sleep(0.1)
     while(ser.inWaiting() > 0):
         data = ser.readline().decode('utf-8').rstrip()
         print(data)
