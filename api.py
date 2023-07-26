@@ -62,6 +62,8 @@ async def start_sprinklr(sprinklr: int, duration: int):
                     logger.debug(f"Started sprinkler {sprinklr} for {duration} minutes: success")
                 else:
                     logger.debug(f"Started sprinkler {sprinklr} for {duration} minutes: failed")
+                    # raise an IOError
+                    raise IOError("Command Failed")
             sprinklr_task = asyncio.create_task(run_sprinklr(sprinklr, duration))  # Start the long-running process in the background
             return {"message": f"Started sprinkler {sprinklr} for {duration} minutes", "systemStatus": "active", "zone": sprinklr}
         except IOError as exc:
@@ -81,6 +83,8 @@ def stop_sprinklr():
                 logger.debug(f"Stopped sprinkler {active_sprinklr}: success")
             else:
                 logger.debug(f"Stopped sprinkler {active_sprinklr}: failed")
+                # raise an IOError
+                raise IOError("Command Failed")
         sprinklr_task.cancel()
         sprinklr_running = False
         end_time = 0
