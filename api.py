@@ -27,6 +27,9 @@ app.add_middleware(
         allow_headers=["*"],
 )
 
+# Set this to True to run the API in dummy mode (no serial port)
+DUMMY_MODE = False
+
 
 df = pd.read_csv("data/sprinklers.csv", usecols=["zone", "name"])
 sprinklers = df.to_dict("records")
@@ -44,7 +47,6 @@ async def run_sprinklr(sprinklr: int,duration: int):
     sprinklr_running = True
     active_sprinklr = sprinklr
     end_time = time.time() + duration*60
-    logger.debug(f"Starting sprinkler {active_sprinklr}, ending at {end_time}")
     await asyncio.sleep(duration*60)  # Simulate a long-running process with a sleep for the given duration
     sprinklr_running = False
 
@@ -55,7 +57,11 @@ async def start_sprinklr(sprinklr: int, duration: int):
         return {"message": "System Error", "systemStatus": "error"}
     if not sprinklr_running:
         try:
-            hunterserial.start_zone(sprinklr, duration)
+            if not DUMMY_MODE:
+                if (hunterserial.start_zone(sprinklr, duration)):
+                    logger.debug(f"Started sprinkler {sprinklr} for {duration} minutes: success")
+                else:
+                    logger.debug(f"Started sprinkler {sprinklr} for {duration} minutes: failed")
             sprinklr_task = asyncio.create_task(run_sprinklr(sprinklr, duration))  # Start the long-running process in the background
             return {"message": f"Started sprinkler {sprinklr} for {duration} minutes", "systemStatus": "active", "zone": sprinklr}
         except IOError as exc:
@@ -69,9 +75,12 @@ def stop_sprinklr():
     if system_error:
         return {"message": "System Error", "systemStatus": "error"}
     # stop the sprinklr
-    logger.debug(f"Stopping sprinkler {active_sprinklr}")
     try:
-        hunterserial.stop_zone(active_sprinklr)
+        if not DUMMY_MODE:
+            if (hunterserial.stop_zone(active_sprinklr)):
+                logger.debug(f"Stopped sprinkler {active_sprinklr}: success")
+            else:
+                logger.debug(f"Stopped sprinkler {active_sprinklr}: failed")
         sprinklr_task.cancel()
         sprinklr_running = False
         end_time = 0
