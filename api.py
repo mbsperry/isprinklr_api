@@ -15,6 +15,7 @@ app = FastAPI()
 with open("api.conf", "r") as f:
     config = json.load(f)
     DOMAIN = config["domain"]
+    # DUMMY_MODE is a flag to indicate if the system is running in dummy mode (i.e. no Arduino connected, don't attempt to use serial port)
     if config["dummy_mode"] == "True":
         DUMMY_MODE = True
     else:
@@ -35,10 +36,6 @@ app.add_middleware(
         allow_methods=["*"],
         allow_headers=["*"],
 )
-
-# Set this to True to run the API in dummy mode (no serial port) for testing purposes
-# DUMMY_MODE = True
-
 
 df = pd.read_csv("data/sprinklers.csv", usecols=["zone", "name"])
 sprinklers = df.to_dict("records")

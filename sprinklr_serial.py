@@ -34,9 +34,6 @@ BAD_CMD = b'\x69'
 BAD_SPRINKLER = b'\x6f'
 BAD_DURATION = b'\x70'
 
-# SERIAL_PORT = '/dev/ttyACM0'
-# SERIAL_PORT = '/dev/null'
-
 # Read configuration (api.conf) file which contains a JSON object. Serial port is listed under "serial_port"
 with open("api.conf", "r") as f:
     config = json.load(f)
@@ -68,6 +65,8 @@ def stop_zone(sprinkler):
     cmd = STOP_SPRINKLER + sprinkler.to_bytes(1, byteorder='big') + EMPTY
     return writeCmd(cmd)
 
+# Check to see if arduino is connected and responding
+# Send handshake until arduino wakes up and responds
 def test_awake():
     # arduino = serial.serial_for_url('rfc2217://localhost:4000', baudrate=9600, timeout=1)
     try:
