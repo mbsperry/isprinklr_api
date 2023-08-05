@@ -11,13 +11,19 @@ logger = logging.getLogger()
 
 app = FastAPI()
 
+# Read configuration (api.conf) file which contains a JSON object. 
+with open("api.conf", "r") as f:
+    config = json.load(f)
+    DOMAIN = config["domain"]
+    DUMMY_MODE = config["dummy_mode"]
+
 origins = [
         "http://localhost",
         "http://localhost:3000",
         "http://localhost:80",
-        "http://isprinklr.lan",
-        "http://isprinklr.lan:80",
-        "http://isprinklr.lan:3000",
+        f'http://{DOMAIN}',
+        f'http://{DOMAIN}:80',
+        f'http://{DOMAIN}:3000'
 ]
 
 app.add_middleware(
@@ -27,8 +33,8 @@ app.add_middleware(
         allow_headers=["*"],
 )
 
-# Set this to True to run the API in dummy mode (no serial port)
-DUMMY_MODE = False
+# Set this to True to run the API in dummy mode (no serial port) for testing purposes
+# DUMMY_MODE = True
 
 
 df = pd.read_csv("data/sprinklers.csv", usecols=["zone", "name"])
@@ -50,6 +56,10 @@ async def run_sprinklr(sprinklr: int,duration: int):
     await asyncio.sleep(duration*60)  # Simulate a long-running process with a sleep for the given duration
     sprinklr_running = False
 
+@app.get("/api/reset_system")
+async def reset_system():
+    global system_error
+    
 @app.get("/api/start_sprinklr/{sprinklr}/duration/{duration}")
 async def start_sprinklr(sprinklr: int, duration: int):
     global sprinklr_running, system_error, sprinklr_task, active_sprinklr, end_time

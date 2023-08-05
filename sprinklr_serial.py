@@ -3,6 +3,7 @@ import time
 import random
 import secrets
 import logging
+import json
 
 # Serial communication protocol:
 # Incoming packets are 8 bytes, response is 7 bytes
@@ -33,6 +34,15 @@ BAD_CMD = b'\x69'
 BAD_SPRINKLER = b'\x6f'
 BAD_DURATION = b'\x70'
 
+# SERIAL_PORT = '/dev/ttyACM0'
+# SERIAL_PORT = '/dev/null'
+
+# Read configuration (api.conf) file which contains a JSON object. Serial port is listed under "serial_port"
+with open("api.conf", "r") as f:
+    config = json.load(f)
+    SERIAL_PORT = config["serial_port"]
+
+
 # Fletcher16 checksum
 # Returns the checksum of the data at a 16 bit integer
 def fletcher16(data):
@@ -57,6 +67,27 @@ def start_zone(sprinkler, duration):
 def stop_zone(sprinkler):
     cmd = STOP_SPRINKLER + sprinkler.to_bytes(1, byteorder='big') + EMPTY
     return writeCmd(cmd)
+
+def test_awake():
+    # arduino = serial.serial_for_url('rfc2217://localhost:4000', baudrate=9600, timeout=1)
+    try:
+        arduino = serial.Serial(SERIAL_PORT, 9600, timeout=1)
+        conn_id = (int(time.time()) % 255).to_bytes(1, byteorder='big')
+        attempt = 0
+        while attempt < 5:
+            if (handshake(arduino, conn_id)):
+                arduino.close()
+                return True
+            attempt += 1
+            time.sleep(0.3)
+
+    except IOError as exc:
+        logging.debug(f'sprinklr_serial: Caught file I/O error {str(exc)}')
+        raise exc
+    # print('Command failed')
+    arduino.close()
+    logging.debug('sprinklr_serial: Unable to connect to arduino')
+    return False
 
 # Handshake with Arduino
 # Send begin, conn_id, SYN, and 2 empty bytes, checksum, and END
@@ -106,7 +137,7 @@ def handshake(arduino, conn_id):
 def writeCmd(cmd):
     # arduino = serial.serial_for_url('rfc2217://localhost:4000', baudrate=9600, timeout=1)
     try:
-        arduino = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+        arduino = serial.Serial(SERIAL_PORT, 9600, timeout=1)
         conn_id = (int(time.time()) % 255).to_bytes(1, byteorder='big')
         cmd = conn_id + cmd
         if (handshake(arduino, conn_id)):
@@ -145,7 +176,7 @@ def garbage():
     noise = secrets.token_bytes(length)
     # Send garbage to the arduino to simulate noise
     # arduino = serial.serial_for_url('rfc2217://localhost:4000', baudrate=9600, timeout=1)
-    arduino = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+    arduino = serial.Serial(SERIAL_PORT, 9600, timeout=1)
     arduino.write(noise)
     arduino.flush()
     arduino.close()
@@ -160,12 +191,12 @@ def test(withGarbage):
 
         sprinkler = random.randint(1, 8)
         duration = random.randint(1, 30)
-        if (startSprinkler(sprinkler, duration) == False):
+        if (start_zone(sprinkler, duration) == False):
             print('Failed to start sprinkler')
             passed = False
             break
         time.sleep(0.2)
-        if (stopSprinkler(sprinkler) == False):
+        if (stop_zone(sprinkler) == False):
             print('Failed to stop sprinkler')
             passed = False
             break
@@ -173,13 +204,13 @@ def test(withGarbage):
         i += 1
         time.sleep(0.2)
     print('Testing bad commands')
-    if (startSprinkler(9, 5) == True):
+    if (start_zone(9, 5) == True):
         print('Bad sprinkler test failed')
         passed = False
     else:
         print('Bad sprinkler test passed')
     print 
-    if (startSprinkler(5, 61) == True):
+    if (stop_zone(5, 61) == True):
         print('Bad duration test failed')
         passed = False
     else:
@@ -193,8 +224,16 @@ def test(withGarbage):
 
 
 if __name__ == '__main__':
-    print('Starting tests')
+    try:
+        if test_awake() == True:
+            print('Arduino is awake')
+        else:
+            print('Arduino is not responding')
+    except Exception as exc:
+        print('System error')
+        print(f'Caught exception {str(exc)}')
+"""     print('Starting tests')
     print('Testing without garbage')
     test(False)
     print('Testing with garbage')
-    test(True)
+    test(True) """
