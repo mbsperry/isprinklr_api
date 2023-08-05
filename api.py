@@ -1,4 +1,4 @@
-import asyncio, pandas as pd, logging, time, math
+import asyncio, pandas as pd, logging, time, math, json
 import sprinklr_serial as hunterserial
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,13 +11,22 @@ logger = logging.getLogger()
 
 app = FastAPI()
 
+# Read configuration (api.conf) file which contains a JSON object. 
+with open("api.conf", "r") as f:
+    config = json.load(f)
+    DOMAIN = config["domain"]
+    if config["dummy_mode"] == "True":
+        DUMMY_MODE = True
+    else:
+        DUMMY_MODE = False
+
 origins = [
         "http://localhost",
         "http://localhost:3000",
         "http://localhost:80",
-        "http://isprinklr.lan",
-        "http://isprinklr.lan:80",
-        "http://isprinklr.lan:3000",
+        f'http://{DOMAIN}',
+        f'http://{DOMAIN}:80',
+        f'http://{DOMAIN}:3000'
 ]
 
 app.add_middleware(
@@ -27,8 +36,8 @@ app.add_middleware(
         allow_headers=["*"],
 )
 
-# Set this to True to run the API in dummy mode (no serial port)
-DUMMY_MODE = False
+# Set this to True to run the API in dummy mode (no serial port) for testing purposes
+# DUMMY_MODE = True
 
 
 df = pd.read_csv("data/sprinklers.csv", usecols=["zone", "name"])
@@ -50,6 +59,21 @@ async def run_sprinklr(sprinklr: int,duration: int):
     await asyncio.sleep(duration*60)  # Simulate a long-running process with a sleep for the given duration
     sprinklr_running = False
 
+@app.get("/api/reset_system")
+async def reset_system():
+    global system_error
+    if not DUMMY_MODE:
+        try:
+            if (hunterserial.test_awake()):
+                system_error = False
+                return {"message": "System Reset, arduino connected"}
+            else:
+                system_error = True
+                return {"message": "Arduino not responding", "systemStatus": "error"}
+        except IOError as exc:
+            system_error = True
+            return {"message": "Error: Serial port error", "systemStatus": "error"}
+    
 @app.get("/api/start_sprinklr/{sprinklr}/duration/{duration}")
 async def start_sprinklr(sprinklr: int, duration: int):
     global sprinklr_running, system_error, sprinklr_task, active_sprinklr, end_time
@@ -104,8 +128,19 @@ def get_status():
         logger.debug('Active Sprinklr %s', active_sprinklr)
         return {"systemStatus": "active", "message": f"Zone: {active_sprinklr} running", "zone": active_sprinklr, "duration": math.ceil(end_time - time.time())}
     else:
-        logger.debug('System Idle')
-        return {"duration": 0, "message": "System inactive", "systemStatus": "inactive"}
+        try:
+            if not DUMMY_MODE:
+                if (hunterserial.test_awake()):
+                    logger.debug('System Idle')
+                    return {"duration": 0, "message": "System inactive", "systemStatus": "inactive"}
+                else:
+                    system_error = True
+                    logger.debug('Arduino not responding')
+                    return {"duration": -1, "message": "Arduino not responding", "systemStatus": "error"}
+        except IOError as exc:
+            system_error = True
+            logger.debug(f"Caught file I/O error {str(exc)}")
+            return {"duration": -1, "message": "Error: Serial Port error", "systemStatus": "error"}
 
 # api route to return the list of sprinklers
 @app.get("/api/sprinklers")
