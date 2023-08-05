@@ -1,4 +1,4 @@
-import asyncio, pandas as pd, logging, time, math
+import asyncio, pandas as pd, logging, time, math, json
 import sprinklr_serial as hunterserial
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,7 +15,10 @@ app = FastAPI()
 with open("api.conf", "r") as f:
     config = json.load(f)
     DOMAIN = config["domain"]
-    DUMMY_MODE = config["dummy_mode"]
+    if config["dummy_mode"] == "True":
+        DUMMY_MODE = True
+    else:
+        DUMMY_MODE = False
 
 origins = [
         "http://localhost",
@@ -59,6 +62,17 @@ async def run_sprinklr(sprinklr: int,duration: int):
 @app.get("/api/reset_system")
 async def reset_system():
     global system_error
+    if not DUMMY_MODE:
+        try:
+            if (hunterserial.test_awake()):
+                system_error = False
+                return {"message": "System Reset, arduino connected"}
+            else:
+                system_error = True
+                return {"message": "Arduino not responding", "systemStatus": "error"}
+        except IOError as exc:
+            system_error = True
+            return {"message": "Error: Serial port error", "systemStatus": "error"}
     
 @app.get("/api/start_sprinklr/{sprinklr}/duration/{duration}")
 async def start_sprinklr(sprinklr: int, duration: int):
@@ -114,8 +128,19 @@ def get_status():
         logger.debug('Active Sprinklr %s', active_sprinklr)
         return {"systemStatus": "active", "message": f"Zone: {active_sprinklr} running", "zone": active_sprinklr, "duration": math.ceil(end_time - time.time())}
     else:
-        logger.debug('System Idle')
-        return {"duration": 0, "message": "System inactive", "systemStatus": "inactive"}
+        try:
+            if not DUMMY_MODE:
+                if (hunterserial.test_awake()):
+                    logger.debug('System Idle')
+                    return {"duration": 0, "message": "System inactive", "systemStatus": "inactive"}
+                else:
+                    system_error = True
+                    logger.debug('Arduino not responding')
+                    return {"duration": -1, "message": "Arduino not responding", "systemStatus": "error"}
+        except IOError as exc:
+            system_error = True
+            logger.debug(f"Caught file I/O error {str(exc)}")
+            return {"duration": -1, "message": "Error: Serial Port error", "systemStatus": "error"}
 
 # api route to return the list of sprinklers
 @app.get("/api/sprinklers")
