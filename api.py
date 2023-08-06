@@ -129,6 +129,7 @@ def get_status():
             if not DUMMY_MODE:
                 if (hunterserial.test_awake()):
                     logger.debug('System Idle')
+                    system_error = False
                     return {"duration": 0, "message": "System inactive", "systemStatus": "inactive"}
                 else:
                     system_error = True
