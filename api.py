@@ -119,8 +119,8 @@ def stop_sprinklr():
 @app.get("/api/status")
 def get_status():
     global sprinklr_running, active_sprinklr, system_error
-    if system_error:
-        return {"duration": -1, "message": "System Error", "systemStatus": "error"}
+#    if system_error:
+#        return {"duration": -1, "message": "System Error", "systemStatus": "error"}
     if sprinklr_running:
         logger.debug('Active Sprinklr %s', active_sprinklr)
         return {"systemStatus": "active", "message": f"Zone: {active_sprinklr} running", "zone": active_sprinklr, "duration": math.ceil(end_time - time.time())}
