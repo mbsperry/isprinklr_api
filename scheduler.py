@@ -9,7 +9,7 @@ import pandas as pd
 import requests
 
 #API_URL = "http://isprinklr.lan:8080/api/"
-API_URL = "http://192.168.88.160:8080/api/"
+API_URL = "http://localhost:8080/api/"
 
 day_abbr = {
         0: "Su",
@@ -25,7 +25,6 @@ day_abbr = {
 def read_schedule():
     """Reads the sprinkler schedule from a .csv file and returns a list of dictionaries"""
     df = pd.read_csv("data/schedule.csv", usecols=["zone", "day", "duration"])
-    print(df)
     return df
 
 def parse_schedule(schedule):
@@ -47,9 +46,10 @@ def parse_schedule(schedule):
         elif row["day"] == "EO":
             # Only run on odd days
             if int(time.strftime("%j")) % 2 != 0:
+                # This code runs only on odd days (based on day of the year)
                 queue.append(row)
         elif row["day"] == "EE":
-            # Only run on even days
+            # Only run on even days (based on day of the year)
             if int(time.strftime("%j")) % 2 == 0:
                 queue.append(row)
         # If the day is a combination of days, check if the sprinkler needs to be run today
@@ -57,7 +57,6 @@ def parse_schedule(schedule):
             # If the day is a combination of days, check if the sprinkler needs to be run today
             if day_abbr[int(time.strftime("%w"))] in row["day"]:
                 queue.append(row)
-    print (queue)
     return queue
 
 def check_system_status():
@@ -109,7 +108,8 @@ def run_queue(queue):
     return True
 
 def main():
-    logging.debug("Starting scheduler")
+    logging.debug("--------Starting scheduler--------")
+    logging.debug(f"Today's day of week/day number: {time.strftime('%A-%j')}")
     schedule = read_schedule()
     queue = parse_schedule(schedule)
     run_queue(queue)
@@ -117,8 +117,11 @@ def main():
 
 if __name__ == "__main__":
     logging.basicConfig(filename="scheduler.log",
-                        format='%(asctime)s %(message)s',
-                        filemode='w')
+                        format='%(asctime)s %(levelname)s: %(message)s',
+                        datefmt='%Y-%m-%d %H:%M:%S',
+                        filemode='a')
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
+    logging.getLogger("requests").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
     main()

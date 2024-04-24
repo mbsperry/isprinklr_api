@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 logging.basicConfig(filename="api.log",
                     format='%(asctime)s %(message)s',
-                    filemode='w',
+                    filemode='a',
                     level=logging.DEBUG)
 logger = logging.getLogger()
 
