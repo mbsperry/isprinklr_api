@@ -16,10 +16,11 @@ with open("api.conf", "r") as f:
     config = json.load(f)
     DOMAIN = config["domain"]
     # DUMMY_MODE is a flag to indicate if the system is running in dummy mode (i.e. no Arduino connected, don't attempt to use serial port)
-    if config["dummy_mode"] == "True":
-        DUMMY_MODE = True
-    else:
-        DUMMY_MODE = False
+    # if config["dummy_mode"] == "True":
+    #     DUMMY_MODE = True
+    # else:
+    #     DUMMY_MODE = False
+    DUMMY_MODE = False
 
 origins = [
         "http://localhost",

@@ -38,6 +38,11 @@ BAD_DURATION = b'\x70'
 with open("api.conf", "r") as f:
     config = json.load(f)
     SERIAL_PORT = config["serial_port"]
+    # DUMMY_MODE is a flag to indicate if the system is running in dummy mode (i.e. no Arduino connected, don't attempt to use serial port)
+    if config["dummy_mode"] == "True":
+        DUMMY_MODE = True
+    else:
+        DUMMY_MODE = False
 
 
 # Fletcher16 checksum
@@ -69,6 +74,8 @@ def stop_zone(sprinkler):
 # Send handshake until arduino wakes up and responds
 def test_awake():
     # arduino = serial.serial_for_url('rfc2217://localhost:4000', baudrate=9600, timeout=1)
+    if DUMMY_MODE:
+        return True
     try:
         arduino = serial.Serial(SERIAL_PORT, 9600, timeout=1)
         conn_id = (int(time.time()) % 255).to_bytes(1, byteorder='big')
@@ -94,6 +101,8 @@ def test_awake():
 # Check that the received checksum = expectedChk
 # Send ACK, 2 empty bytes, checksum, and END to complete handshake and return true
 def handshake(arduino, conn_id):
+    if DUMMY_MODE:
+        return True
     attempt = 0
     cmd = conn_id + SYN + EMPTY + EMPTY
     chk = fletcher16(cmd)
@@ -135,6 +144,8 @@ def handshake(arduino, conn_id):
 # Starts with handshake, if successful, send command
 def writeCmd(cmd):
     # arduino = serial.serial_for_url('rfc2217://localhost:4000', baudrate=9600, timeout=1)
+    if DUMMY_MODE:
+        return True
     try:
         arduino = serial.Serial(SERIAL_PORT, 9600, timeout=1)
         conn_id = (int(time.time()) % 255).to_bytes(1, byteorder='big')
