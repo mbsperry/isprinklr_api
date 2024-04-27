@@ -41,6 +41,9 @@ app.add_middleware(
 df = pd.read_csv("data/sprinklers.csv", usecols=["zone", "name"])
 sprinklers = df.to_dict("records")
 
+schedule_df = pd.read_csv("data/schedule.csv", usecols=["zone", "day", "duration"])
+schedule = schedule_df.to_dict("records")
+
 # A flag to indicate if the long-running process is running
 sprinklr_running = False
 active_sprinklr = None
@@ -145,3 +148,56 @@ def get_status():
 @app.get("/api/sprinklers")
 def get_sprinklers():
     return sprinklers
+
+# api route to set the schedule for a sprinkler
+@app.get("/api/set_schedule/{zone}/{day}/{duration}")
+def set_schedule(zone: int, day: str, duration: int):
+    global schedule
+    # Validate the input
+    if not (0 < zone <= len(sprinklers)):
+        return {"message": "Invalid zone", "status": "error"}
+    if duration <= 0:
+        return {"message": "Invalid duration", "status": "error"}
+    if day not in ["EO", "EE", "MWF", "TuTh", "MTu", "SaSu", "all", "SuTh"]:
+        return {"message": "Invalid day specification", "status": "error"}
+
+    # Update the schedule
+    updated = False
+    for i, sched in enumerate(schedule):
+        if sched['zone'] == zone:
+            schedule[i] = {'zone': zone, 'day': day, 'duration': duration}
+            updated = True
+            break
+
+    if not updated:
+        schedule.append({'zone': zone, 'day': day, 'duration': duration})
+
+    # Convert schedule to a dataframe and write to CSV
+    write_df = pd.DataFrame(schedule)
+    write_df.to_csv('data/schedule.csv', index=False)
+
+    return {"message": "Schedule updated successfully", "status": "success"}
+
+# api route to return the list of schedule records
+@app.get("/api/get_schedule")
+def get_schedule():
+    return schedule
+
+# api route to display the tail from the api.log file
+@app.get("/api/api_log")
+def get_api_log():
+    with open("api.log", "r") as f:
+        return f.readlines()[-100:]
+
+#api route to display the tail from the scheduler.log file
+@app.get("/api/scheduler_log")
+def get_scheduler_log():
+    with open("scheduler.log", "r") as f:
+        return f.readlines()[-100:]
+
+#api route to display the tail from the serial.log file
+@app.get("/api/serial_log")
+def get_serial_log():
+    with open("serial.log", "r") as f:
+        return f.readlines()[-100:]
+
