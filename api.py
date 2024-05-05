@@ -2,6 +2,9 @@ import asyncio, pandas as pd, logging, time, math, json
 import sprinklr_serial as hunterserial
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from pydantic import RootModel
+from typing import List
 
 logging.basicConfig(filename="api.log",
                     format='%(asctime)s %(message)s',
@@ -10,6 +13,14 @@ logging.basicConfig(filename="api.log",
 logger = logging.getLogger()
 
 app = FastAPI()
+
+class ScheduleItem(BaseModel):
+    zone: int
+    day: str
+    duration: int
+
+class Schedule(BaseModel):
+    items: List[ScheduleItem]
 
 # Read configuration (api.conf) file which contains a JSON object. 
 with open("api.conf", "r") as f:
@@ -150,32 +161,10 @@ def get_sprinklers():
     return sprinklers
 
 # api route to set the schedule for a sprinkler
-@app.get("/api/set_schedule/{zone}/{day}/{duration}")
-def set_schedule(zone: int, day: str, duration: int):
+@app.post("/api/set_schedule")
+def set_schedule(new_schedule: Schedule):
     global schedule
-    # Validate the input
-    if not (0 < zone <= len(sprinklers)):
-        return {"message": "Invalid zone", "status": "error"}
-    if duration <= 0:
-        return {"message": "Invalid duration", "status": "error"}
-    if day not in ["EO", "EE", "MWF", "TuTh", "MTu", "SaSu", "all", "SuTh"]:
-        return {"message": "Invalid day specification", "status": "error"}
-
-    # Update the schedule
-    updated = False
-    for i, sched in enumerate(schedule):
-        if sched['zone'] == zone:
-            schedule[i] = {'zone': zone, 'day': day, 'duration': duration}
-            updated = True
-            break
-
-    if not updated:
-        schedule.append({'zone': zone, 'day': day, 'duration': duration})
-
-    # Convert schedule to a dataframe and write to CSV
-    write_df = pd.DataFrame(schedule)
-    write_df.to_csv('data/schedule.csv', index=False)
-
+    logger.debug(f"Setting schedule: {new_schedule}")
     return {"message": "Schedule updated successfully", "status": "success"}
 
 # api route to return the list of schedule records
