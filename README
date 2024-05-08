@@ -15,6 +15,8 @@ Connect arduino to a raspberry pi (or similar) via USB on the programming port.
 - Build and install iSprinklr_arduino using PlatformIO
 - Git clone iSprinklr_api. Create a virtual environment and install requirements.txt using pip. Run the API using uvicorn.
 - Git clone iSprinklr_react. Build and serve via nginx or node serve. 
+- If you want to use the scheduling feature you will need to setup a cron job to run the scheduler.py script daily.
+- Adjust data/sprinklers.csv to match your existing sprinkler zones and data/schedule.csv to your watering schedule.
 
 Credit:
 iSprinklr_arduino relies on the HunterRoam library from ecodina (https://github.com/ecodina/hunter-wifi) to actually control the Hunter Pro-c.
