@@ -2,9 +2,7 @@ import asyncio, pandas as pd, logging, time, math, json
 import sprinklr_serial as hunterserial
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from typing_extensions import TypedDict
-from typing import List
 
 logging.basicConfig(filename="api.log",
                     format='%(asctime)s %(message)s',
