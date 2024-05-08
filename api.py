@@ -41,10 +41,54 @@ app.add_middleware(
         allow_methods=["*"],
         allow_headers=["*"],
 )
+def validate_sprinklers(sprinklers: list[dict]):
+    # check to make sure no more than 12 sprinklers are defined
+    # This is arbitrary but we don't want files that are too large
+    if len(sprinklers) > 12:
+        logger.error(f"Too many sprinklers defined: {sprinklers}")
+        return False
+    # check that each zone is only used once
+    if len(sprinklers) != len(set([x["zone"] for x in sprinklers])):
+        logger.error(f"Duplicate zones in sprinklers: {sprinklers}")
+        return False
+    # check that each name is unique
+    if len(sprinklers) != len(set([x["name"] for x in sprinklers])):
+        logger.error(f"Duplicate names in sprinklers: {sprinklers}")
+        return False
+    return True
+
+def validate_schedule(schedule: list[ScheduleItem]):
+    valid_days = {"M", "Tu", "W", "Th", "F", "Sa", "Su", "ALL", "NONE", "EO"}
+    sprinkler_zones = [x["zone"] for x in sprinklers]
+    # check that each zone is only used once
+    if len(schedule) != len(set([x["zone"] for x in schedule])):
+        logger.error(f"Duplicate zones in schedule: {schedule}")
+        return False
+    for item in schedule:
+        # Check if the zone is valid
+        if item["zone"] not in sprinkler_zones:
+            logger.error(f"Invalid zone in schedule: {item}")
+            return False
+        # Check if the duration is valid
+        if item["duration"] < 0 or item["duration"] > 60:
+            logger.error(f"Invalid duration in schedule: {item}")
+            return False
+        # Check if the day is valid
+        days = item["day"].split(':')
+        if not all(day in valid_days for day in days):
+            logger.error(f"Invalid day in schedule: {item}")
+            return False
+        if "ALL" in days or "NONE" in days or "EO" in days:
+            if len(days) > 1:
+                logger.error(f"Invalid day definition in schedule. Cannot contain multiple day selector and specified days: {item}")
+                return False
+    return True
 
 try:
     df = pd.read_csv("data/sprinklers.csv", usecols=["zone", "name"])
     sprinklers = df.to_dict("records")
+    if not validate_sprinklers(sprinklers):
+        schedule = []
 except Exception as e:
     logger.error(f"Failed to load sprinklers data: {e}")
     sprinklers = []
@@ -52,6 +96,9 @@ except Exception as e:
 try:
     schedule_df = pd.read_csv("data/schedule.csv", usecols=["zone", "day", "duration"])
     schedule = schedule_df.to_dict("records")
+    if not validate_schedule(schedule):
+        logger.error(f"Schedule.csv contained invalid sprinkler definitions")
+        schedule = []
 except Exception as e:
     logger.error(f"Failed to load schedule data: {e}")
     schedule = []
@@ -71,39 +118,6 @@ async def run_sprinklr(sprinklr: int,duration: int):
     await asyncio.sleep(duration*60)  # Simulate a long-running process with a sleep for the given duration
     sprinklr_running = False
 
-def validate_schedule(schedule: list[ScheduleItem]):
-    # check that each zone is only used once
-    if len(schedule) != len(set([x["zone"] for x in schedule])):
-        logger.debug(f"Duplicate zones in schedule: {schedule}")
-        return False
-
-    # check if the zone number is valid
-    for item in schedule:
-        if item["zone"] not in [x["zone"] for x in sprinklers]:
-            logger.debug(f"Invalid zone in schedule: {item}")
-            return False
-
-    # check to make sure the duration is valid
-    for item in schedule:
-        if item["duration"] < 0 or item["duration"] > 60:
-            logger.debug(f"Invalid duration in schedule: {item}")
-            return False
-
-    # check to make sure the day is valid
-    # the day field can contain any combination of M,Tu,W,Th,F,Sa,Su OR ALL, NONE, EO
-    valid_days = {"M", "Tu", "W", "Th", "F", "Sa", "Su", "ALL", "NONE", "EO"}
-    for item in schedule:
-        days = item["day"].split(':')
-        if not all(day in valid_days for day in days):
-            logger.debug(f"Invalid day in schedule: {item}")
-            return False
-    for item in schedule:
-        days = item["day"].split(':')
-        if "ALL" in days or "NONE" in days or "EO" in days:
-            if len(days) > 1:
-                logger.debug(f"Invalid day in schedule: {item}")
-                return False
-    return True
     
 
 
@@ -191,7 +205,7 @@ def get_status():
 @app.get("/api/sprinklers")
 def get_sprinklers():
     if not sprinklers:
-        raise HTTPException(status_code=500, detail="Failed to load sprinklers data")
+        raise HTTPException(status_code=500, detail="Failed to load sprinklers data, see logs for details")
     return sprinklers
 
 # api route to set the schedule
