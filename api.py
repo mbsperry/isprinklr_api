@@ -1,6 +1,6 @@
 import asyncio, pandas as pd, logging, time, math, json
 import sprinklr_serial as hunterserial
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pydantic import RootModel
@@ -49,11 +49,19 @@ app.add_middleware(
         allow_headers=["*"],
 )
 
-df = pd.read_csv("data/sprinklers.csv", usecols=["zone", "name"])
-sprinklers = df.to_dict("records")
+try:
+    df = pd.read_csv("data/sprinklers.csv", usecols=["zone", "name"])
+    sprinklers = df.to_dict("records")
+except Exception as e:
+    logger.error(f"Failed to load sprinklers data: {e}")
+    sprinklers = []
 
-schedule_df = pd.read_csv("data/schedule.csv", usecols=["zone", "day", "duration"])
-schedule = schedule_df.to_dict("records")
+try:
+    schedule_df = pd.read_csv("data/schedule.csv", usecols=["zone", "day", "duration"])
+    schedule = schedule_df.to_dict("records")
+except Exception as e:
+    logger.error(f"Failed to load schedule data: {e}")
+    schedule = []
 
 # A flag to indicate if the long-running process is running
 sprinklr_running = False
@@ -158,18 +166,26 @@ def get_status():
 # api route to return the list of sprinklers
 @app.get("/api/sprinklers")
 def get_sprinklers():
+    if not sprinklers:
+        raise HTTPException(status_code=500, detail="Failed to load sprinklers data")
     return sprinklers
 
-# api route to set the schedule for a sprinkler
+# api route to set the schedule
+# TODO: validate the new schedule
+# TODO: write the new schedule to CSV file
 @app.post("/api/set_schedule")
 def set_schedule(new_schedule: Schedule):
     global schedule
-    logger.debug(f"Setting schedule: {new_schedule}")
+    logger.debug(f"Old schedule: {schedule}")
+    schedule = new_schedule.items
+    logger.debug(f"Setting schedule: {new_schedule.items}")
     return {"message": "Schedule updated successfully", "status": "success"}
 
 # api route to return the list of schedule records
 @app.get("/api/get_schedule")
 def get_schedule():
+    if not schedule:
+        raise HTTPException(status_code=500, detail="Failed to load schedule data")
     return schedule
 
 # api route to display the tail from the api.log file
