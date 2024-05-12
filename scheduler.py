@@ -124,4 +124,8 @@ if __name__ == "__main__":
     logger.setLevel(logging.DEBUG)
     logging.getLogger("requests").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
-    main()
+    r = requests.get(API_URL + "get_schedule_on_off")
+    if r.json()["schedule_on_off"] == True:
+        main()
+    else:
+        logging.debug("Schedule is off, not running")

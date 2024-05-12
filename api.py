@@ -1,8 +1,10 @@
 import asyncio, pandas as pd, logging, time, math, json
 import sprinklr_serial as hunterserial
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from typing_extensions import TypedDict
+from typing import Annotated
+from pydantic import BaseModel
 
 logging.basicConfig(filename="api.log",
                     format='%(asctime)s %(message)s',
@@ -19,10 +21,17 @@ class ScheduleItem(TypedDict):
     day: str
     duration: int
 
+class ScheduleOnOff(BaseModel):
+    schedule_on_off: bool
+
 # Read configuration (api.conf) file which contains a JSON object. 
-with open("api.conf", "r") as f:
-    config = json.load(f)
-    DOMAIN = config["domain"]
+try:
+    with open("api.conf", "r") as f:
+        config = json.load(f)
+        DOMAIN = config["domain"]
+        SCHEDULE_ON_OFF=config["schedule_on_off"]
+except Exception as e:
+    logger.error(f"Failed to load api.conf: {e}")
 
 origins = [
         "http://localhost",
@@ -115,8 +124,6 @@ async def run_sprinklr(sprinklr: int,duration: int):
     end_time = time.time() + duration*60
     await asyncio.sleep(duration*60)  # Simulate a long-running process with a sleep for the given duration
     sprinklr_running = False
-
-    
 
 
 @app.get("/api/reset_system")
@@ -233,6 +240,26 @@ def get_schedule():
     if not schedule:
         raise HTTPException(status_code=500, detail="Failed to load schedule data")
     return schedule
+
+@app.get("/api/get_schedule_on_off")
+def get_schedule_on_off():
+    if 'schedule_on_off' not in config:
+        logger.error("schedule_on_off configuration is missing")
+        raise HTTPException(status_code=500, detail="Configuration error: api.conf missing or invalid")
+    return {"schedule_on_off": SCHEDULE_ON_OFF}
+
+@app.post("/api/set_schedule_on_off")
+def set_schedule_on_off(on_off: ScheduleOnOff):
+    global SCHEDULE_ON_OFF
+    SCHEDULE_ON_OFF = on_off.schedule_on_off
+    config["schedule_on_off"] = SCHEDULE_ON_OFF
+    try:
+        with open("api.conf", "w") as f:
+            json.dump(config, f)
+    except Exception as e:
+        logger.error(f"Failed to write schedule on off to api.conf: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to write schedule on off to api.conf: {e}")
+    return {"message": "Schedule on off updated successfully", "status": "success"}
 
 # api route to display the tail from the api.log file
 @app.get("/api/api_log")
