@@ -1,26 +1,28 @@
 import asyncio, pandas as pd, logging, time, math, json
 import sprinklr_serial as hunterserial
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from typing_extensions import TypedDict
 
 logging.basicConfig(filename="api.log",
                     format='%(asctime)s %(message)s',
-                    filemode='w',
+                    filemode='a',
                     level=logging.DEBUG)
 logger = logging.getLogger()
 
 app = FastAPI()
 
+# TODO: api path to update sprinkler names
+
+class ScheduleItem(TypedDict):
+    zone: int
+    day: str
+    duration: int
+
 # Read configuration (api.conf) file which contains a JSON object. 
 with open("api.conf", "r") as f:
     config = json.load(f)
     DOMAIN = config["domain"]
-    # DUMMY_MODE is a flag to indicate if the system is running in dummy mode (i.e. no Arduino connected, don't attempt to use serial port)
-    # if config["dummy_mode"] == "True":
-    #     DUMMY_MODE = True
-    # else:
-    #     DUMMY_MODE = False
-    DUMMY_MODE = False
 
 origins = [
         "http://localhost",
@@ -37,11 +39,68 @@ app.add_middleware(
         allow_methods=["*"],
         allow_headers=["*"],
 )
+def validate_sprinklers(sprinklers: list[dict]):
+    # check to make sure no more than 12 sprinklers are defined
+    # This is arbitrary but we don't want files that are too large
+    if len(sprinklers) > 12:
+        logger.error(f"Too many sprinklers defined: {sprinklers}")
+        return False
+    # check that each zone is only used once
+    if len(sprinklers) != len(set([x["zone"] for x in sprinklers])):
+        logger.error(f"Duplicate zones in sprinklers: {sprinklers}")
+        return False
+    # check that each name is unique
+    if len(sprinklers) != len(set([x["name"] for x in sprinklers])):
+        logger.error(f"Duplicate names in sprinklers: {sprinklers}")
+        return False
+    return True
 
-df = pd.read_csv("data/sprinklers.csv", usecols=["zone", "name"])
-sprinklers = df.to_dict("records")
+def validate_schedule(schedule: list[ScheduleItem]):
+    valid_days = {"M", "Tu", "W", "Th", "F", "Sa", "Su", "ALL", "NONE", "EO"}
+    sprinkler_zones = [x["zone"] for x in sprinklers]
+    # check that each zone is only used once
+    if len(schedule) != len(set([x["zone"] for x in schedule])):
+        logger.error(f"Duplicate zones in schedule: {schedule}")
+        return False
+    for item in schedule:
+        # Check if the zone is valid
+        if item["zone"] not in sprinkler_zones:
+            logger.error(f"Invalid zone in schedule: {item}")
+            return False
+        # Check if the duration is valid
+        if item["duration"] < 0 or item["duration"] > 60:
+            logger.error(f"Invalid duration in schedule: {item}")
+            return False
+        # Check if the day is valid
+        days = item["day"].split(':')
+        if not all(day in valid_days for day in days):
+            logger.error(f"Invalid day in schedule: {item}")
+            return False
+        if "ALL" in days or "NONE" in days or "EO" in days:
+            if len(days) > 1:
+                logger.error(f"Invalid day definition in schedule. Cannot contain multiple day selector and specified days: {item}")
+                return False
+    return True
 
-# A flag to indicate if the long-running process is running
+try:
+    df = pd.read_csv("data/sprinklers.csv", usecols=["zone", "name"])
+    sprinklers = df.to_dict("records")
+    if not validate_sprinklers(sprinklers):
+        schedule = []
+except Exception as e:
+    logger.error(f"Failed to load sprinklers data: {e}")
+    sprinklers = []
+
+try:
+    schedule_df = pd.read_csv("data/schedule.csv", usecols=["zone", "day", "duration"])
+    schedule = schedule_df.to_dict("records")
+    if not validate_schedule(schedule):
+        logger.error(f"Schedule.csv contained invalid sprinkler definitions")
+        schedule = []
+except Exception as e:
+    logger.error(f"Failed to load schedule data: {e}")
+    schedule = []
+
 sprinklr_running = False
 active_sprinklr = None
 system_error = False
@@ -57,20 +116,22 @@ async def run_sprinklr(sprinklr: int,duration: int):
     await asyncio.sleep(duration*60)  # Simulate a long-running process with a sleep for the given duration
     sprinklr_running = False
 
+    
+
+
 @app.get("/api/reset_system")
 async def reset_system():
     global system_error
-    if not DUMMY_MODE:
-        try:
-            if (hunterserial.test_awake()):
-                system_error = False
-                return {"message": "System Reset, arduino connected"}
-            else:
-                system_error = True
-                return {"message": "Arduino not responding", "systemStatus": "error"}
-        except IOError as exc:
+    try:
+        if (hunterserial.test_awake()):
+            system_error = False
+            return {"message": "System Reset, arduino connected"}
+        else:
             system_error = True
-            return {"message": "Error: Serial port error", "systemStatus": "error"}
+            return {"message": "Arduino not responding", "systemStatus": "error"}
+    except IOError as exc:
+        system_error = True
+        return {"message": "Error: Serial port error", "systemStatus": "error"}
     
 @app.get("/api/start_sprinklr/{sprinklr}/duration/{duration}")
 async def start_sprinklr(sprinklr: int, duration: int):
@@ -79,13 +140,12 @@ async def start_sprinklr(sprinklr: int, duration: int):
         return {"message": "System Error", "systemStatus": "error"}
     if not sprinklr_running:
         try:
-            if not DUMMY_MODE:
-                if (hunterserial.start_zone(sprinklr, duration)):
-                    logger.debug(f"Started sprinkler {sprinklr} for {duration} minutes: success")
-                else:
-                    logger.debug(f"Started sprinkler {sprinklr} for {duration} minutes: failed")
-                    # raise an IOError
-                    raise IOError("Command Failed")
+            if (hunterserial.start_zone(sprinklr, duration)):
+                logger.debug(f"Started sprinkler {sprinklr} for {duration} minutes: success")
+            else:
+                logger.debug(f"Started sprinkler {sprinklr} for {duration} minutes: failed")
+                # raise an IOError
+                raise IOError("Command Failed")
             sprinklr_task = asyncio.create_task(run_sprinklr(sprinklr, duration))  # Start the long-running process in the background
             return {"message": f"Started sprinkler {sprinklr} for {duration} minutes", "systemStatus": "active", "zone": sprinklr}
         except IOError as exc:
@@ -100,13 +160,12 @@ def stop_sprinklr():
         return {"message": "System Error", "systemStatus": "error"}
     # stop the sprinklr
     try:
-        if not DUMMY_MODE:
-            if (hunterserial.stop_zone(active_sprinklr)):
-                logger.debug(f"Stopped sprinkler {active_sprinklr}: success")
-            else:
-                logger.debug(f"Stopped sprinkler {active_sprinklr}: failed")
-                # raise an IOError
-                raise IOError("Command Failed")
+        if (hunterserial.stop_zone(active_sprinklr)):
+            logger.debug(f"Stopped sprinkler {active_sprinklr}: success")
+        else:
+            logger.debug(f"Stopped sprinkler {active_sprinklr}: failed")
+            # raise an IOError
+            raise IOError("Command Failed")
         sprinklr_task.cancel()
         sprinklr_running = False
         end_time = 0
@@ -127,15 +186,14 @@ def get_status():
         return {"systemStatus": "active", "message": f"Zone: {active_sprinklr} running", "zone": active_sprinklr, "duration": math.ceil(end_time - time.time())}
     else:
         try:
-            if not DUMMY_MODE:
-                if (hunterserial.test_awake()):
-                    logger.debug('System Idle')
-                    system_error = False
-                    return {"duration": 0, "message": "System inactive", "systemStatus": "inactive"}
-                else:
-                    system_error = True
-                    logger.debug('Arduino not responding')
-                    return {"duration": -1, "message": "Arduino not responding", "systemStatus": "error"}
+            if (hunterserial.test_awake()):
+                logger.debug('System Idle')
+                system_error = False
+                return {"duration": 0, "message": "System inactive", "systemStatus": "inactive"}
+            else:
+                system_error = True
+                logger.debug('Arduino not responding')
+                return {"duration": -1, "message": "Arduino not responding", "systemStatus": "error"}
         except IOError as exc:
             system_error = True
             logger.debug(f"Caught file I/O error {str(exc)}")
@@ -144,4 +202,74 @@ def get_status():
 # api route to return the list of sprinklers
 @app.get("/api/sprinklers")
 def get_sprinklers():
+    if not sprinklers:
+        raise HTTPException(status_code=500, detail="Failed to load sprinklers data, see logs for details")
     return sprinklers
+
+# api route to set the schedule
+# TODO: validate the new schedule
+# TODO: write the new schedule to CSV file
+@app.post("/api/set_schedule")
+def set_schedule(new_schedule: list[ScheduleItem]):
+    global schedule
+    logger.debug(f"Setting schedule: {new_schedule}")
+    if validate_schedule(new_schedule):
+        schedule = new_schedule
+    else:
+        raise HTTPException(status_code=400, detail="Invalid schedule")
+    import pandas as pd
+    df = pd.DataFrame(schedule)
+    try:
+        df.to_csv('data/schedule.csv', mode='w', index=False)
+        logger.debug("Schedule written to schedule.csv successfully")
+    except Exception as e:
+        logger.error(f"Failed to write schedule to schedule.csv: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to write schedule to schedule.csv: {e}")
+    return {"message": "Schedule updated successfully", "status": "success"}
+
+# api route to return the list of schedule records
+@app.get("/api/get_schedule")
+def get_schedule():
+    if not schedule:
+        raise HTTPException(status_code=500, detail="Failed to load schedule data")
+    return schedule
+
+# api route to display the tail from the api.log file
+@app.get("/api/api_log")
+def get_api_log():
+    try:
+        with open("api.log", "r") as f:
+            return f.readlines()[-100:]
+    except FileNotFoundError:
+        logger.error("API Log file not found")
+        raise HTTPException(status_code=404, detail="Log file not found")
+    except Exception as e:
+        logger.error(f"An error occurred: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+#api route to display the tail from the scheduler.log file
+@app.get("/api/scheduler_log")
+def get_scheduler_log():
+    try:
+        with open("scheduler.log", "r") as f:
+            return f.readlines()[-100:]
+    except FileNotFoundError:
+        logger.error("Scheduler Log file not found")
+        raise HTTPException(status_code=404, detail="Log file not found")
+    except Exception as e:
+        logger.error(f"An error occurred: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+#api route to display the tail from the serial.log file
+@app.get("/api/serial_log")
+def get_serial_log():
+    try:
+        with open("serial.log", "r") as f:
+            return f.readlines()[-100:]
+    except FileNotFoundError:
+        logger.error("Serial Log file not found")
+        raise HTTPException(status_code=404, detail="Log file not found")
+    except Exception as e:
+        logger.error(f"An error occurred: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
