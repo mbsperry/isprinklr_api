@@ -8,7 +8,6 @@ import time
 import pandas as pd
 import requests
 
-#API_URL = "http://isprinklr.lan:8080/api/"
 API_URL = "http://localhost:8080/api/"
 
 day_abbr = {
@@ -24,8 +23,12 @@ day_abbr = {
 
 def read_schedule():
     """Reads the sprinkler schedule from a .csv file and returns a list of dictionaries"""
-    df = pd.read_csv("data/schedule.csv", usecols=["zone", "day", "duration"])
-    return df
+    try: 
+        df = pd.read_csv("data/schedule.csv", usecols=["zone", "day", "duration"])
+        return df, False
+    except Exception as e:
+        logging.error(f"Unable to open schedule.csv: {e}")
+        return None, True
 
 def parse_schedule(schedule):
     # Schedule format: zone, day, duration
@@ -38,6 +41,7 @@ def parse_schedule(schedule):
 
     # Next, iterate through the schedule dataframe
     # If a sprinkler needs to be run, add it to the queue
+    # TODO: needs better validation of each schedule item
     for index, row in schedule.iterrows():
         # If the day is "all", add it to the queue
         if row["day"] == "all":
@@ -110,7 +114,10 @@ def run_queue(queue):
 def main():
     logging.debug("--------Starting scheduler--------")
     logging.debug(f"Today's day of week/day number: {time.strftime('%A-%j')}")
-    schedule = read_schedule()
+    schedule, isError = read_schedule()
+    if isError:
+        logging.error("Unable to read schedule.csv. Aborting")
+        return
     queue = parse_schedule(schedule)
     run_queue(queue)
 
