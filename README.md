@@ -19,7 +19,7 @@ Connect arduino to a raspberry pi (or similar) via USB on the programming port.
 - Run the API using uvicorn.
 - Git clone iSprinklr_react. Build and serve via nginx or node serve. 
 - If you want to use the scheduling feature you will need to setup a cron job to run the scheduler.py script daily.
-- Make sure your system clock is set correctly is using the scheduler function!
+- Make sure your system clock is set correctly if using the scheduler function!
 
 Credit:
 iSprinklr_arduino relies on the HunterRoam library from ecodina (https://github.com/ecodina/hunter-wifi) to actually control the Hunter Pro-c.
