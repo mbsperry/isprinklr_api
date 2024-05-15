@@ -20,6 +20,7 @@ day_abbr = {
         6: "Sa"
         }
 
+# TODO: don't read schedule.csv directly, get schedule from API
 
 def read_schedule():
     """Reads the sprinkler schedule from a .csv file and returns a list of dictionaries"""
@@ -41,26 +42,30 @@ def parse_schedule(schedule):
 
     # Next, iterate through the schedule dataframe
     # If a sprinkler needs to be run, add it to the queue
-    # TODO: needs better validation of each schedule item
+    # TODO: needs better validation of each schedule item, better yet get schedule from API since that already has validation
     for index, row in schedule.iterrows():
         # If the day is "all", add it to the queue
-        if row["day"] == "all":
-            queue.append(row)
+        if row["day"].upper() == "ALL":
+            queue.append({"zone": row["zone"], "day": row["day"], "duration": row["duration"]})
         # If the day is "EO", check if the day is even or odd
-        elif row["day"] == "EO":
+        elif row["day"].upper() == "EO":
             # Only run on odd days
             if int(time.strftime("%j")) % 2 != 0:
                 # This code runs only on odd days (based on day of the year)
-                queue.append(row)
-        elif row["day"] == "EE":
+                queue.append({"zone": row["zone"], "day": row["day"], "duration": row["duration"]})
+        elif row["day"].upper() == "EE":
             # Only run on even days (based on day of the year)
+            # Not currently implemented in API
             if int(time.strftime("%j")) % 2 == 0:
-                queue.append(row)
+                queue.append({"zone": row["zone"], "day": row["day"], "duration": row["duration"]})
+        elif row["day"].upper() == "NONE":
+            # Do not run this sprinkler
+            pass
         # If the day is a combination of days, check if the sprinkler needs to be run today
         else:
             # If the day is a combination of days, check if the sprinkler needs to be run today
             if day_abbr[int(time.strftime("%w"))] in row["day"]:
-                queue.append(row)
+                queue.append({"zone": row["zone"], "day": row["day"], "duration": row["duration"]})
     return queue
 
 def check_system_status():
@@ -131,6 +136,7 @@ if __name__ == "__main__":
     logger.setLevel(logging.DEBUG)
     logging.getLogger("requests").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
+
     r = requests.get(API_URL + "get_schedule_on_off")
     if r.json()["schedule_on_off"] == True:
         main()
