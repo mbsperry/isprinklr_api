@@ -4,6 +4,7 @@
 # Then it needs to start the sprinklers using the API defined in api.py and wait for them to finish.
 
 import logging
+from logging.handlers import RotatingFileHandler
 import time
 import pandas as pd
 import requests
@@ -128,10 +129,9 @@ def main():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(filename="scheduler.log",
-                        format='%(asctime)s %(levelname)s: %(message)s',
-                        datefmt='%Y-%m-%d %H:%M:%S',
-                        filemode='a')
+    logging.basicConfig(handlers=[RotatingFileHandler('scheduler.log', maxBytes=1024*1024, backupCount=1, mode='a')],
+                    format='%(asctime)s %(levelname)s: %(message)s',
+                    level=logging.DEBUG) 
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
     logging.getLogger("requests").setLevel(logging.WARNING)

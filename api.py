@@ -1,4 +1,5 @@
 import asyncio, pandas as pd, logging, time, math, json
+from logging.handlers import RotatingFileHandler
 import sprinklr_serial as hunterserial
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,9 +7,8 @@ from typing_extensions import TypedDict
 from typing import Annotated
 from pydantic import BaseModel
 
-logging.basicConfig(filename="api.log",
-                    format='%(asctime)s %(message)s',
-                    filemode='a',
+logging.basicConfig(handlers=[RotatingFileHandler('api.log', maxBytes=1024*1024, backupCount=1, mode='a')],
+                    format='%(asctime)s %(levelname)s: %(message)s',
                     level=logging.DEBUG)
 logger = logging.getLogger()
 
