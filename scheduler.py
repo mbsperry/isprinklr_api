@@ -125,6 +125,9 @@ def main():
         logging.error("Unable to read schedule.csv. Aborting")
         return
     queue = parse_schedule(schedule)
+    if len(queue) == 0:
+        logging.debug("No sprinklers scheduled to run today")
+        return
     run_queue(queue)
 
 
