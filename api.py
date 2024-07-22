@@ -15,6 +15,7 @@ logger = logging.getLogger()
 app = FastAPI()
 
 # TODO: api path to update sprinkler names
+# TODO: add log level to api.conf
 
 class ScheduleItem(TypedDict):
     zone: int

@@ -74,19 +74,22 @@ def check_system_status():
     # If it is, return True, 0
     # If it isn't, return False, duration remaining
     # On error return False, -1
-    try:
-        r = requests.get(API_URL + "status")
-        if r.json()["systemStatus"] == "inactive":
-            return [True, 0]
-        elif r.json()["systemStatus"] == "active":
-            return False, r.json()["duration"]
-        else:
-            # System is in error
-            logging.debug(f"System is in error state: {r.json()['message']}")
+    for attempt in range(3):
+        try:
+            r = requests.get(API_URL + "status")
+            if r.json()["systemStatus"] == "inactive":
+                return [True, 0]
+            elif r.json()["systemStatus"] == "active":
+                return False, r.json()["duration"]
+            else:
+                # System is in error
+                if attempt == 2:
+                    logging.debug(f"System is in error state: {r.json()['message']}")
+                    return False, -1
+                logging.debug(f"Received status: {r.json()['systemStatus']}, retrying")
+        except Exception as e:
+            logging.debug(f"Attempt {attempt + 1}: Caught exception {e}")
             return False, -1
-    except Exception as e:
-        logging.debug(f"Caught exception {e}")
-        return False, -1  
 
 def run_queue(queue):
     # Iterate through the queue and start the sprinklers
@@ -140,8 +143,11 @@ if __name__ == "__main__":
     logging.getLogger("requests").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
 
-    r = requests.get(API_URL + "get_schedule_on_off")
-    if r.json()["schedule_on_off"] == True:
-        main()
-    else:
-        logging.debug("Schedule is off, not running")
+    try:
+        r = requests.get(API_URL + "get_schedule_on_off")
+        if r.json()["schedule_on_off"] == True:
+            main()
+        else:
+            logging.debug("Schedule is off, not running")
+    except Exception as e:
+        logging.error(f"Caught exception {e}")
