@@ -8,7 +8,7 @@ from typing import Annotated
 from pydantic import BaseModel
 
 logging.basicConfig(handlers=[RotatingFileHandler('api.log', maxBytes=1024*1024, backupCount=1, mode='a')],
-                    format='%(asctime)s %(levelname)s: %(message)s',
+                    format='%(asctime)s %(levelname)s: %(message)s', datefmt='%m-%d-%Y %H:%M:%S',
                     level=logging.DEBUG)
 logger = logging.getLogger("api_log")
 

@@ -36,7 +36,7 @@ BAD_SPRINKLER = b'\x6f'
 BAD_DURATION = b'\x70'
 
 file_handler = RotatingFileHandler('serial.log', maxBytes=1024*1024, backupCount=1, mode='a')
-formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s')
+formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', datefmt='%m-%d-%Y %H:%M:%S')
 file_handler.setFormatter(formatter)
 logger = logging.getLogger("serial_log")
 logger.setLevel(logging.ERROR)
