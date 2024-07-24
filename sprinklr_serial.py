@@ -4,6 +4,7 @@ import random
 import secrets
 import logging
 import json
+from logging.handlers import RotatingFileHandler
 
 # Serial communication protocol:
 # Incoming packets are 8 bytes, response is 7 bytes
@@ -34,15 +35,25 @@ BAD_CMD = b'\x69'
 BAD_SPRINKLER = b'\x6f'
 BAD_DURATION = b'\x70'
 
+file_handler = RotatingFileHandler('serial.log', maxBytes=1024*1024, backupCount=1, mode='a')
+formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s')
+file_handler.setFormatter(formatter)
+logger = logging.getLogger("serial_log")
+logger.setLevel(logging.ERROR)
+logger.addHandler(file_handler)
+logger.propagate = False
+
 # Read configuration (api.conf) file which contains a JSON object. Serial port is listed under "serial_port"
 with open("api.conf", "r") as f:
     config = json.load(f)
     SERIAL_PORT = config["serial_port"]
+    LOG_LEVEL = config.get("log_level", "ERROR")
+    logger.setLevel(getattr(logging, LOG_LEVEL, "ERROR"))
     # DUMMY_MODE is a flag to indicate if the system is running in dummy mode (i.e. no Arduino connected, don't attempt to use serial port)
-    if config["dummy_mode"] == "True":
-        DUMMY_MODE = True
-    else:
-        DUMMY_MODE = False
+    DUMMY_MODE = config.get("dummy_mode", False) == "True"
+    logger.debug(f"Serial port set to: {SERIAL_PORT}")
+    logger.debug(f"Dummy mode set to: {DUMMY_MODE}")
+    logger.debug(f"Log level set to: {LOG_LEVEL}")
 
 
 # Fletcher16 checksum
@@ -88,11 +99,11 @@ def test_awake():
             time.sleep(0.3)
 
     except IOError as exc:
-        logging.debug(f'sprinklr_serial: Caught file I/O error {str(exc)}')
+        logging.error(f'sprinklr_serial: Caught file I/O error {str(exc)}')
         raise exc
     # print('Command failed')
     arduino.close()
-    logging.debug('sprinklr_serial: Unable to connect to arduino')
+    logging.error('sprinklr_serial: Unable to connect to arduino')
     return False
 
 # Handshake with Arduino
@@ -135,7 +146,7 @@ def handshake(arduino, conn_id):
         else:
             time.sleep(0.1)
     # print('Handshake failed')
-    logging.debug('sprinklr_serial: Handshake failed')
+    logging.error('sprinklr_serial: Handshake failed')
     return False
 
 
@@ -172,10 +183,10 @@ def writeCmd(cmd):
                     time.sleep(0.5)
         arduino.close()
     except IOError as exc:
-        logging.debug(f'sprinklr_serial: Caught file I/O error {str(exc)}')
+        logging.error(f'sprinklr_serial: Caught file I/O error {str(exc)}')
         raise exc
     # print('Command failed')
-    logging.debug('sprinklr_serial: Command failed')
+    logging.error('sprinklr_serial: Command failed')
     return False
 
 # Testing function

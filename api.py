@@ -10,7 +10,7 @@ from pydantic import BaseModel
 logging.basicConfig(handlers=[RotatingFileHandler('api.log', maxBytes=1024*1024, backupCount=1, mode='a')],
                     format='%(asctime)s %(levelname)s: %(message)s',
                     level=logging.DEBUG)
-logger = logging.getLogger()
+logger = logging.getLogger("api_log")
 
 app = FastAPI()
 
@@ -30,9 +30,14 @@ try:
     with open("api.conf", "r") as f:
         config = json.load(f)
         DOMAIN = config["domain"]
-        SCHEDULE_ON_OFF=config["schedule_on_off"]
+        SCHEDULE_ON_OFF=config.get("schedule_on_off", False) == "True"
+        LOG_LEVEL=config.get("log_level", "ERROR")
+        logger.setLevel(getattr(logging, LOG_LEVEL, "ERROR"))
+        logger.debug("Starting API")
+        logger.debug(f"Run schedule is set to: {SCHEDULE_ON_OFF}")
+        logger.debug(f"Log level set to {LOG_LEVEL}")
 except Exception as e:
-    logger.error(f"Failed to load api.conf: {e}")
+    logger.CRITICAL(f"Failed to load api.conf: {e}")
 
 origins = [
         "http://localhost",
@@ -151,7 +156,7 @@ async def start_sprinklr(sprinklr: int, duration: int):
             if (hunterserial.start_zone(sprinklr, duration)):
                 logger.debug(f"Started sprinkler {sprinklr} for {duration} minutes: success")
             else:
-                logger.debug(f"Started sprinkler {sprinklr} for {duration} minutes: failed")
+                logger.error(f"Started sprinkler {sprinklr} for {duration} minutes: failed")
                 # raise an IOError
                 raise IOError("Command Failed")
             sprinklr_task = asyncio.create_task(run_sprinklr(sprinklr, duration))  # Start the long-running process in the background
@@ -171,7 +176,7 @@ def stop_sprinklr():
         if (hunterserial.stop_zone(active_sprinklr)):
             logger.debug(f"Stopped sprinkler {active_sprinklr}: success")
         else:
-            logger.debug(f"Stopped sprinkler {active_sprinklr}: failed")
+            logger.error(f"Stopped sprinkler {active_sprinklr}: failed")
             # raise an IOError
             raise IOError("Command Failed")
         sprinklr_task.cancel()
@@ -179,7 +184,7 @@ def stop_sprinklr():
         end_time = 0
         return {"message": f"{active_sprinklr} stopped", "systemStatus": "inactive"}
     except IOError as exc:
-        logger.debug(f"Caught file I/O error {str(exc)}")
+        logger.error(f"Caught file I/O error {str(exc)}")
         system_error = True
         return {"message": "Error: Serial Port error", "systemStatus": "error"}
 
@@ -200,11 +205,11 @@ def get_status():
                 return {"duration": 0, "message": "System inactive", "systemStatus": "inactive"}
             else:
                 system_error = True
-                logger.debug('Arduino not responding')
+                logger.error('Arduino not responding')
                 return {"duration": -1, "message": "Arduino not responding", "systemStatus": "error"}
         except IOError as exc:
             system_error = True
-            logger.debug(f"Caught file I/O error {str(exc)}")
+            logger.error(f"Caught file I/O error {str(exc)}")
             return {"duration": -1, "message": "Error: Serial Port error", "systemStatus": "error"}
 
 # api route to return the list of sprinklers
