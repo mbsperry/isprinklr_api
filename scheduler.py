@@ -87,6 +87,7 @@ def check_system_status():
                     logging.debug(f"System is in error state: {r.json()['message']}")
                     return False, -1
                 logging.debug(f"Received status: {r.json()['systemStatus']}, retrying")
+                time.sleep(180)  # Sleep for 3 minutes (180 seconds)
         except Exception as e:
             logging.debug(f"Attempt {attempt + 1}: Caught exception {e}")
             return False, -1

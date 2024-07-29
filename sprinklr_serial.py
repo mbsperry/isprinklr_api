@@ -99,11 +99,11 @@ def test_awake():
             time.sleep(0.3)
 
     except IOError as exc:
-        logging.error(f'sprinklr_serial: Caught file I/O error {str(exc)}')
+        logger.error(f'sprinklr_serial: Caught file I/O error {str(exc)}')
         raise exc
     # print('Command failed')
     arduino.close()
-    logging.error('sprinklr_serial: Unable to connect to arduino')
+    logger.error('sprinklr_serial: Unable to connect to arduino')
     return False
 
 # Handshake with Arduino
@@ -123,14 +123,14 @@ def handshake(arduino, conn_id):
         data = False
         attempt += 1
         # print(f'Writing: {byteStr}')
-        logging.debug(f'sprinklr_serial: Writing: {byteStr}')
+        logger.debug(f'sprinklr_serial: Writing: {byteStr}')
         arduino.write(byteStr)
         arduino.flush()
         time.sleep(0.1)
         while (arduino.inWaiting() > 0):   
             data = arduino.read(7)
             # print(f'Received {data}')
-            logging.debug(f'sprinklr_serial: Received {data}')
+            logger.debug(f'sprinklr_serial: Received {data}')
         if not data:
             time.sleep(0.1)
             continue
@@ -146,7 +146,7 @@ def handshake(arduino, conn_id):
         else:
             time.sleep(0.1)
     # print('Handshake failed')
-    logging.error('sprinklr_serial: Handshake failed')
+    logger.error('sprinklr_serial: Handshake failed')
     return False
 
 
@@ -183,10 +183,10 @@ def writeCmd(cmd):
                     time.sleep(0.5)
         arduino.close()
     except IOError as exc:
-        logging.error(f'sprinklr_serial: Caught file I/O error {str(exc)}')
+        logger.error(f'sprinklr_serial: Caught file I/O error {str(exc)}')
         raise exc
     # print('Command failed')
-    logging.error('sprinklr_serial: Command failed')
+    logger.error('sprinklr_serial: Command failed')
     return False
 
 # Testing function
