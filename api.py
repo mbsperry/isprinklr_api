@@ -30,14 +30,16 @@ try:
     with open("api.conf", "r") as f:
         config = json.load(f)
         DOMAIN = config["domain"]
-        SCHEDULE_ON_OFF=config.get("schedule_on_off", False) == "True"
+        SCHEDULE_ON_OFF=config.get("schedule_on_off", False) 
+        if not isinstance(SCHEDULE_ON_OFF, bool):
+            SCHEDULE_ON_OFF = SCHEDULE_ON_OFF.lower() in ["true", "yes", "on"]
         LOG_LEVEL=config.get("log_level", "ERROR")
         logger.setLevel(getattr(logging, LOG_LEVEL, "ERROR"))
         logger.debug("Starting API")
         logger.debug(f"Run schedule is set to: {SCHEDULE_ON_OFF}")
         logger.debug(f"Log level set to {LOG_LEVEL}")
 except Exception as e:
-    logger.CRITICAL(f"Failed to load api.conf: {e}")
+    logger.critical(f"Failed to load api.conf: {e}")
 
 origins = [
         "http://localhost",
@@ -249,9 +251,6 @@ def get_schedule():
 
 @app.get("/api/get_schedule_on_off")
 def get_schedule_on_off():
-    if 'schedule_on_off' not in config:
-        logger.error("schedule_on_off configuration is missing")
-        raise HTTPException(status_code=500, detail="Configuration error: api.conf missing or invalid")
     return {"schedule_on_off": SCHEDULE_ON_OFF}
 
 @app.post("/api/set_schedule_on_off")
