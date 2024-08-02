@@ -1,13 +1,19 @@
-import asyncio, pandas as pd, logging, time, math, json
+import asyncio, pandas as pd, logging, time, math, json, os
 from logging.handlers import RotatingFileHandler
-import sprinklr_serial as hunterserial
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from typing_extensions import TypedDict
 from typing import Annotated
 from pydantic import BaseModel
 
-logging.basicConfig(handlers=[RotatingFileHandler('api.log', maxBytes=1024*1024, backupCount=1, mode='a')],
+# check to see if logs directory exists, if not create it
+if not os.path.exists("logs"):
+    os.makedirs("logs")
+
+# import sprinklr_serial module after creating logs directory
+import sprinklr_serial as hunterserial
+
+logging.basicConfig(handlers=[RotatingFileHandler('logs/api.log', maxBytes=1024*1024, backupCount=1, mode='a')],
                     format='%(asctime)s %(levelname)s: %(message)s', datefmt='%m-%d-%Y %H:%M:%S',
                     level=logging.DEBUG)
 logger = logging.getLogger("api_log")
@@ -26,7 +32,7 @@ class ScheduleOnOff(BaseModel):
 
 # Read configuration (api.conf) file which contains a JSON object. 
 try:
-    with open("api.conf", "r") as f:
+    with open("config/api.conf", "r") as f:
         config = json.load(f)
         DOMAIN = config["domain"]
         SCHEDULE_ON_OFF=config.get("schedule_on_off", False) 
@@ -258,7 +264,7 @@ def set_schedule_on_off(on_off: ScheduleOnOff):
     SCHEDULE_ON_OFF = on_off.schedule_on_off
     config["schedule_on_off"] = SCHEDULE_ON_OFF
     try:
-        with open("api.conf", "w") as f:
+        with open("config/api.conf", "w") as f:
             json.dump(config, f)
     except Exception as e:
         logger.error(f"Failed to write schedule on off to api.conf: {e}")
@@ -269,7 +275,7 @@ def set_schedule_on_off(on_off: ScheduleOnOff):
 @app.get("/api/api_log")
 def get_api_log():
     try:
-        with open("api.log", "r") as f:
+        with open("logs/api.log", "r") as f:
             return f.readlines()[-100:]
     except FileNotFoundError:
         logger.error("API Log file not found")
@@ -282,7 +288,7 @@ def get_api_log():
 @app.get("/api/scheduler_log")
 def get_scheduler_log():
     try:
-        with open("scheduler.log", "r") as f:
+        with open("logs/scheduler.log", "r") as f:
             return f.readlines()[-100:]
     except FileNotFoundError:
         logger.error("Scheduler Log file not found")
@@ -295,7 +301,7 @@ def get_scheduler_log():
 @app.get("/api/serial_log")
 def get_serial_log():
     try:
-        with open("serial.log", "r") as f:
+        with open("logs/serial.log", "r") as f:
             return f.readlines()[-100:]
     except FileNotFoundError:
         logger.error("Serial Log file not found")
