@@ -136,7 +136,7 @@ def main():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(handlers=[RotatingFileHandler('scheduler.log', maxBytes=1024*1024, backupCount=1, mode='a')],
+    logging.basicConfig(handlers=[RotatingFileHandler('logs/scheduler.log', maxBytes=1024*1024, backupCount=1, mode='a')],
                     format='%(asctime)s %(levelname)s: %(message)s',
                     level=logging.DEBUG) 
     logger = logging.getLogger()
