@@ -124,15 +124,19 @@ def run_queue(queue):
 def main():
     logging.debug("--------Starting scheduler--------")
     logging.debug(f"Today's day of week/day number: {time.strftime('%A-%j')}")
-    schedule, isError = read_schedule()
-    if isError:
-        logging.error("Unable to read schedule.csv. Aborting")
+    try:
+        schedule, isError = read_schedule()
+        if isError:
+            raise Exception("Unable to read schedule.csv")
+        queue = parse_schedule(schedule)
+        if len(queue) == 0:
+            logging.debug("No sprinklers scheduled to run today")
+            return
+        run_queue(queue)
+    except Exception as e:
+        logging.error(f"Scheduler Error: {e}")
         return
-    queue = parse_schedule(schedule)
-    if len(queue) == 0:
-        logging.debug("No sprinklers scheduled to run today")
-        return
-    run_queue(queue)
+
 
 
 if __name__ == "__main__":
