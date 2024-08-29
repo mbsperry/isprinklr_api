@@ -6,14 +6,16 @@ from typing_extensions import TypedDict
 from typing import Annotated
 from pydantic import BaseModel
 
+from isprinklr.context import logs_path, data_path, config_path
+
 # check to see if logs directory exists, if not create it
-if not os.path.exists("logs"):
-    os.makedirs("logs")
+if not os.path.exists(logs_path):
+    os.makedirs(logs_path)
 
 # import sprinklr_serial module after creating logs directory
-import sprinklr_serial as hunterserial
+import isprinklr.sprinklr_serial as hunterserial
 
-logging.basicConfig(handlers=[RotatingFileHandler('logs/api.log', maxBytes=1024*1024, backupCount=1, mode='a')],
+logging.basicConfig(handlers=[RotatingFileHandler(logs_path + '/api.log', maxBytes=1024*1024, backupCount=1, mode='a')],
                     format='%(asctime)s %(levelname)s: %(message)s', datefmt='%m-%d-%Y %H:%M:%S',
                     level=logging.DEBUG)
 logger = logging.getLogger("api_log")
@@ -32,7 +34,7 @@ class ScheduleOnOff(BaseModel):
 
 # Read configuration (api.conf) file which contains a JSON object. 
 try:
-    with open("config/api.conf", "r") as f:
+    with open(config_path + "/api.conf", "r") as f:
         config = json.load(f)
         DOMAIN = config["domain"]
         SCHEDULE_ON_OFF=config.get("schedule_on_off", False) 
@@ -105,7 +107,7 @@ def validate_schedule(schedule: list[ScheduleItem]):
     return True
 
 try:
-    df = pd.read_csv("data/sprinklers.csv", usecols=["zone", "name"])
+    df = pd.read_csv(data_path + "/sprinklers.csv", usecols=["zone", "name"])
     sprinklers = df.to_dict("records")
     if not validate_sprinklers(sprinklers):
         schedule = []
@@ -114,7 +116,7 @@ except Exception as e:
     sprinklers = []
 
 try:
-    schedule_df = pd.read_csv("data/schedule.csv", usecols=["zone", "day", "duration"])
+    schedule_df = pd.read_csv(data_path + "/schedule.csv", usecols=["zone", "day", "duration"])
     schedule = schedule_df.to_dict("records")
     if not validate_schedule(schedule):
         logger.error(f"Schedule.csv contained invalid sprinkler definitions")
@@ -240,7 +242,7 @@ def set_schedule(new_schedule: list[ScheduleItem]):
     import pandas as pd
     df = pd.DataFrame(schedule)
     try:
-        df.to_csv('data/schedule.csv', mode='w', index=False)
+        df.to_csv(data_path + "/schedule.csv", mode='w', index=False)
         logger.debug("Schedule written to schedule.csv successfully")
     except Exception as e:
         logger.error(f"Failed to write schedule to schedule.csv: {e}")
@@ -264,7 +266,7 @@ def set_schedule_on_off(on_off: ScheduleOnOff):
     SCHEDULE_ON_OFF = on_off.schedule_on_off
     config["schedule_on_off"] = SCHEDULE_ON_OFF
     try:
-        with open("config/api.conf", "w") as f:
+        with open(config_path + "/api.conf", "w") as f:
             json.dump(config, f)
     except Exception as e:
         logger.error(f"Failed to write schedule on off to api.conf: {e}")
@@ -275,7 +277,7 @@ def set_schedule_on_off(on_off: ScheduleOnOff):
 @app.get("/api/api_log")
 def get_api_log():
     try:
-        with open("logs/api.log", "r") as f:
+        with open(logs_path + "/api.log", "r") as f:
             return f.readlines()[-100:]
     except FileNotFoundError:
         logger.error("API Log file not found")
@@ -288,7 +290,7 @@ def get_api_log():
 @app.get("/api/scheduler_log")
 def get_scheduler_log():
     try:
-        with open("logs/scheduler.log", "r") as f:
+        with open(logs_path + "/scheduler.log", "r") as f:
             return f.readlines()[-100:]
     except FileNotFoundError:
         logger.error("Scheduler Log file not found")
@@ -301,7 +303,7 @@ def get_scheduler_log():
 @app.get("/api/serial_log")
 def get_serial_log():
     try:
-        with open("logs/serial.log", "r") as f:
+        with open(logs_path + "/serial.log", "r") as f:
             return f.readlines()[-100:]
     except FileNotFoundError:
         logger.error("Serial Log file not found")

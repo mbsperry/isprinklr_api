@@ -1,6 +1,8 @@
 from fastapi.testclient import TestClient
 
-from api import app
+from context import isprinklr
+
+from isprinklr.main import app
 
 client = TestClient(app)
 

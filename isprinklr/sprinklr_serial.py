@@ -6,6 +6,8 @@ import logging
 import json
 from logging.handlers import RotatingFileHandler
 
+from isprinklr.context import logs_path, config_path
+
 # Serial communication protocol:
 # Incoming packets are 8 bytes, response is 7 bytes
 
@@ -35,7 +37,7 @@ BAD_CMD = b'\x69'
 BAD_SPRINKLER = b'\x6f'
 BAD_DURATION = b'\x70'
 
-file_handler = RotatingFileHandler('logs/serial.log', maxBytes=1024*1024, backupCount=1, mode='a')
+file_handler = RotatingFileHandler(logs_path + '/serial.log', maxBytes=1024*1024, backupCount=1, mode='a')
 formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', datefmt='%m-%d-%Y %H:%M:%S')
 file_handler.setFormatter(formatter)
 logger = logging.getLogger("serial_log")
@@ -44,7 +46,7 @@ logger.addHandler(file_handler)
 logger.propagate = False
 
 # Read configuration (api.conf) file which contains a JSON object. Serial port is listed under "serial_port"
-with open("config/api.conf", "r") as f:
+with open(config_path + "/api.conf", "r") as f:
     config = json.load(f)
     SERIAL_PORT = config["serial_port"]
     LOG_LEVEL = config.get("log_level", "ERROR")

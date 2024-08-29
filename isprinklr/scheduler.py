@@ -26,7 +26,7 @@ day_abbr = {
 def read_schedule():
     """Reads the sprinkler schedule from a .csv file and returns a list of dictionaries"""
     try: 
-        df = pd.read_csv("data/schedule.csv", usecols=["zone", "day", "duration"])
+        df = pd.read_csv("../data/schedule.csv", usecols=["zone", "day", "duration"])
         return df, False
     except Exception as e:
         logging.error(f"Unable to open schedule.csv: {e}")
@@ -140,7 +140,7 @@ def main():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(handlers=[RotatingFileHandler('logs/scheduler.log', maxBytes=1024*1024, backupCount=1, mode='a')],
+    logging.basicConfig(handlers=[RotatingFileHandler('../logs/scheduler.log', maxBytes=1024*1024, backupCount=1, mode='a')],
                     format='%(asctime)s %(levelname)s: %(message)s',
                     level=logging.DEBUG) 
     logger = logging.getLogger()
