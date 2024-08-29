@@ -6,7 +6,7 @@ import logging
 import json
 from logging.handlers import RotatingFileHandler
 
-from isprinklr.context import logs_path, config_path
+from isprinklr.paths import logs_path, config_path
 
 # Serial communication protocol:
 # Incoming packets are 8 bytes, response is 7 bytes

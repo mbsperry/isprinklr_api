@@ -6,7 +6,7 @@ from typing_extensions import TypedDict
 from typing import Annotated
 from pydantic import BaseModel
 
-from isprinklr.context import logs_path, data_path, config_path
+from isprinklr.paths import logs_path, data_path, config_path
 
 # check to see if logs directory exists, if not create it
 if not os.path.exists(logs_path):
