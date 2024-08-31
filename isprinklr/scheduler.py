@@ -9,7 +9,7 @@ import time
 import pandas as pd
 import requests
 
-from isprinklr.paths import logs_path, config_path
+from isprinklr.paths import logs_path, data_path
 
 API_URL = "http://localhost:8080/api/"
 
