@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 from typing import List
 
 from context import isprinklr
-from isprinklr.schemas import Sprinkler, SprinklerConfig
+from isprinklr.schemas import SprinklerCommand, SprinklerConfig
 from isprinklr.main import app
 
 client = TestClient(app)
@@ -59,7 +59,7 @@ def test_update_sprinklers_server_error(mocker):
 
 def test_start_sprinkler(mocker):
     mocker.patch('isprinklr.routers.sprinklers.system_status.start_sprinkler', return_value=True)
-    sprinkler: Sprinkler = {"zone": 1, "duration": 5}
+    sprinkler: SprinklerCommand = {"zone": 1, "duration": 5}
     response = client.post("/api/sprinklers/start", json=sprinkler)
     assert response.status_code == 200
     assert response.json() == {"message": "Zone 1 started"}
@@ -67,7 +67,7 @@ def test_start_sprinkler(mocker):
 def test_start_sprinkler_while_running(mocker):
     mocker.patch('isprinklr.routers.sprinklers.system_status.start_sprinkler', 
                 side_effect=Exception("Failed to start sprinkler, system already active. Active zone: 2"))
-    sprinkler: Sprinkler = {"zone": 1, "duration": 1}
+    sprinkler: SprinklerCommand = {"zone": 1, "duration": 1}
     response = client.post("/api/sprinklers/start", json=sprinkler)
     assert response.status_code == 500
     assert response.json() == {"detail": "Failed to start sprinkler, see logs for details"}

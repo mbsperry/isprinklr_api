@@ -8,7 +8,7 @@ from .paths import config_path, data_path
 import isprinklr.sprinkler_service as sprinkler_service
 import isprinklr.sprinklr_serial as hunterserial
 from .schedule_service import ScheduleService
-from .schemas import ScheduleItem, Sprinkler, SprinklerConfig
+from .schemas import ScheduleItem, SprinklerCommand, SprinklerConfig
 
 logger = logging.getLogger(__name__)
 
@@ -122,11 +122,11 @@ class SystemStatus:
             logger.error(f"Failed to write sprinklers data: {e}")
             raise
     
-    async def start_sprinkler(self, sprinkler: Sprinkler) -> bool:
+    async def start_sprinkler(self, sprinkler: SprinklerCommand) -> bool:
         """Start a sprinkler for a specified duration.
         
         Args:
-            sprinkler: Sprinkler object containing zone number and duration
+            sprinkler: SprinklerCommand object containing zone number and duration
             
         Returns:
             True if the sprinkler was started successfully

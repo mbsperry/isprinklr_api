@@ -32,7 +32,7 @@
 
 ### Schema Improvements
 - Introduced strongly typed schemas using TypedDict and Pydantic
-  - `Sprinkler` for zone control operations
+  - `SprinklerCommand` for zone control operations (renamed from `Sprinkler` for clarity)
   - `SprinklerConfig` for zone configuration
   - `ScheduleItem` for scheduling definitions
   - `ScheduleOnOff` for schedule control

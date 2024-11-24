@@ -1,7 +1,7 @@
 from typing_extensions import TypedDict
 from pydantic import BaseModel
 
-class Sprinkler(TypedDict):
+class SprinklerCommand(TypedDict):
     zone: int
     duration: int
 

@@ -3,7 +3,7 @@ import requests
 from fastapi import APIRouter, HTTPException
 
 from ..system import system_status
-from ..schemas import Sprinkler, SprinklerConfig
+from ..schemas import SprinklerCommand, SprinklerConfig
 
 router = APIRouter(
     prefix = "/api/sprinklers",
@@ -31,7 +31,7 @@ async def update_sprinklers(sprinklers: list[SprinklerConfig]):
         raise HTTPException(status_code=500, detail="Failed to update sprinklers, see logs for details")
 
 @router.post("/start")
-async def start_sprinkler(sprinkler: Sprinkler):
+async def start_sprinkler(sprinkler: SprinklerCommand):
     logger.debug(f'Received: {sprinkler}')
     try:
         await system_status.start_sprinkler(sprinkler)

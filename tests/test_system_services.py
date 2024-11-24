@@ -5,7 +5,7 @@ from typing import List
 
 from context import isprinklr
 from isprinklr.paths import logs_path
-from isprinklr.schemas import ScheduleItem, SprinklerConfig, Sprinkler
+from isprinklr.schemas import ScheduleItem, SprinklerConfig, SprinklerCommand
 from isprinklr.system import SystemStatus
 import isprinklr.sprinkler_service
 import isprinklr.schedule_service
@@ -79,12 +79,12 @@ def test_update_sprinklers_write_error(mock_system_status, mocker):
 
 @pytest.mark.asyncio
 async def test_start_sprinkler(mock_system_status):
-    sprinkler: Sprinkler = {"zone": 1, "duration": 5}
+    sprinkler: SprinklerCommand = {"zone": 1, "duration": 5}
     assert await mock_system_status.start_sprinkler(sprinkler) == True
 
 @pytest.mark.asyncio
 async def test_get_status_while_running(mock_system_status):
-    sprinkler: Sprinkler = {"zone": 1, "duration": 5}
+    sprinkler: SprinklerCommand = {"zone": 1, "duration": 5}
     assert await mock_system_status.start_sprinkler(sprinkler) == True
     status = mock_system_status.get_status()
     assert status["systemStatus"] == "active"
@@ -94,8 +94,8 @@ async def test_get_status_while_running(mock_system_status):
 @pytest.mark.asyncio
 async def test_start_sprinkler_while_running(mock_system_status):
     try: 
-        sprinkler1: Sprinkler = {"zone": 1, "duration": 5}
-        sprinkler2: Sprinkler = {"zone": 2, "duration": 5}
+        sprinkler1: SprinklerCommand = {"zone": 1, "duration": 5}
+        sprinkler2: SprinklerCommand = {"zone": 2, "duration": 5}
         await mock_system_status.start_sprinkler(sprinkler1)
         await mock_system_status.start_sprinkler(sprinkler2)
     except Exception as exc:
@@ -104,14 +104,14 @@ async def test_start_sprinkler_while_running(mock_system_status):
 @pytest.mark.asyncio
 async def test_start_sprinkler_with_invalid_zone(mock_system_status):
     try:
-        sprinkler: Sprinkler = {"zone": 5, "duration": 5}
+        sprinkler: SprinklerCommand = {"zone": 5, "duration": 5}
         await mock_system_status.start_sprinkler(sprinkler)
     except ValueError as exc:
         assert str(exc) == "Zone 5 not found"
 
 @pytest.mark.asyncio
 async def test_stop_system(mock_system_status):
-    sprinkler: Sprinkler = {"zone": 1, "duration": 5}
+    sprinkler: SprinklerCommand = {"zone": 1, "duration": 5}
     assert await mock_system_status.start_sprinkler(sprinkler) == True
     assert mock_system_status.stop_system() == True
     status = mock_system_status.get_status()
