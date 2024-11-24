@@ -5,7 +5,7 @@
 
 import time, logging
 import requests
-from typing import Annotated
+from typing import Annotated, List
 from fastapi import APIRouter, HTTPException
 
 from ..schemas import ScheduleItem
@@ -25,22 +25,48 @@ day_abbr = {
         6: "Sa"
         }
 
-
 router = APIRouter(
-    prefix = "/api/scheduler",
-    tags = ["scheduler"]
+    prefix="/api/scheduler",
+    tags=["scheduler"]
 )
 
 @router.get("/schedule")
 async def get_schedule():
+    """
+    Get the current sprinkler schedule configuration.
+    
+    Returns:
+        List[ScheduleItem]: List of scheduled sprinkler operations, each containing:
+            - zone (int): Zone number
+            - day (str): Day abbreviation ("Su", "M", "Tu", "W", "Th", "F", "Sa")
+            - duration (int): Duration in minutes
+    """
     return system_status.get_schedule()
 
 @router.get("/on_off")
 async def get_schedule_on_off():
+    """
+    Get whether the automated schedule is currently enabled or disabled.
+    
+    Returns:
+        dict: Contains 'schedule_on_off' boolean indicating if scheduling is enabled
+    """
     return {"schedule_on_off": system_status.schedule_on_off}
 
 @router.put("/on_off")
 async def update_schedule_on_off(schedule_on_off: bool):
+    """
+    Enable or disable the automated schedule.
+    
+    Args:
+        schedule_on_off (bool): True to enable scheduling, False to disable
+        
+    Returns:
+        dict: Updated schedule status
+        
+    Raises:
+        HTTPException: If the update fails
+    """
     try:
         system_status.schedule_on_off = schedule_on_off
         return {"schedule_on_off": system_status.schedule_on_off}
@@ -49,7 +75,22 @@ async def update_schedule_on_off(schedule_on_off: bool):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.put("/schedule")
-async def update_schedule(schedule: list[ScheduleItem]):
+async def update_schedule(schedule: List[ScheduleItem]):
+    """
+    Update the sprinkler schedule configuration.
+    
+    Args:
+        schedule (List[ScheduleItem]): List of schedule items, each containing:
+            - zone (int): Zone number
+            - day (str): Day abbreviation ("Su", "M", "Tu", "W", "Th", "F", "Sa")
+            - duration (int): Duration in minutes
+            
+    Returns:
+        dict: Success message and updated schedule
+        
+    Raises:
+        HTTPException: If the update fails due to invalid data or server error
+    """
     try:
         system_status.update_schedule(schedule)
         return {"message": "Success", "schedule": system_status.get_schedule()}
