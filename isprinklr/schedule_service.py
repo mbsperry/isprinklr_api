@@ -25,10 +25,11 @@ class ScheduleService:
             if item["zone"] not in sprinkler_zones:
                 logger.error(f"Invalid zone in schedule: {item}")
                 raise ValueError("Validation Error: Invalid zone")
-            # Check if the duration is valid
-            if item["duration"] < 0 or item["duration"] > 60:
+            # Check if the duration is valid (in seconds)
+            # Max duration is 2 hours (7200 seconds)
+            if item["duration"] < 0 or item["duration"] > 7200:
                 logger.error(f"Invalid duration in schedule: {item}")
-                raise ValueError("Validation Error: Invalid duration")
+                raise ValueError("Validation Error: Invalid duration (must be between 0 and 7200 seconds)")
             # Check if the day is valid
             days = item["day"].split(':')
             if not all(day in valid_days for day in days):
@@ -77,7 +78,7 @@ class ScheduleService:
             date_str: Date string in MMDDYY format
             
         Returns:
-            List of scheduled zones with their duration
+            List of scheduled zones with their duration (in seconds)
         """
         try:
             date = datetime.strptime(date_str, "%m%d%y")

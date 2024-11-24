@@ -63,7 +63,7 @@ async def start_sprinkler(sprinkler: SprinklerCommand):
     Args:
         sprinkler (SprinklerCommand): Command containing:
             - zone (int): Zone number to start
-            - duration (int): Duration in minutes
+            - duration (int): Duration in seconds
         
     Returns:
         dict: Success message confirming the zone was started
@@ -94,7 +94,7 @@ async def stop_system():
         HTTPException: If the system cannot be stopped due to an error
     """
     try:
-        system_status.stop_system()
+        await system_status.stop_system()
         return {"message": "System stopped"}
     except Exception as exc:
         logger.error(f"Failed to stop system: {exc}")

@@ -33,27 +33,27 @@ bad_sprinklers = {
     "empty_sprinklers": []
 }
 
-# now we need to make a similar set of bad schedules. Test for duplicate zones, invalid days, duration > 60 or < 1 or zones not in sprinklers
+# Test schedules with durations in seconds
 bad_schedules = {
     "duplicate_zones": [
-        {"zone": 1, "day": "M", "duration": 10},
-        {"zone": 1, "day": "Tu", "duration": 10},
+        {"zone": 1, "day": "M", "duration": 600},  # 10 minutes in seconds
+        {"zone": 1, "day": "Tu", "duration": 600},
     ],
     "invalid_days": [
-        {"zone": 1, "day": "Mon", "duration": 10},
-        {"zone": 2, "day": "Tu", "duration": 10},
+        {"zone": 1, "day": "Mon", "duration": 600},
+        {"zone": 2, "day": "Tu", "duration": 600},
     ],
     "duration_too_long": [
-        {"zone": 1, "day": "M", "duration": 61},
-        {"zone": 2, "day": "Tu", "duration": 10},
+        {"zone": 1, "day": "M", "duration": 7800},  # Over 2 hours (7200 seconds)
+        {"zone": 2, "day": "Tu", "duration": 600},
     ],
     "duration_too_short": [
         {"zone": 1, "day": "M", "duration": -1},
-        {"zone": 2, "day": "Tu", "duration": 10},
+        {"zone": 2, "day": "Tu", "duration": 600},
     ],
     "zone_not_in_sprinklers": [
-        {"zone": 1, "day": "M", "duration": 10},
-        {"zone": 5, "day": "Tu", "duration": 10},
+        {"zone": 1, "day": "M", "duration": 600},
+        {"zone": 5, "day": "Tu", "duration": 600},
     ],
 }
 
@@ -148,8 +148,8 @@ def schedule_service(mocker, mock_schedule_path):
 
 def test_update_schedule(mocker, schedule_service):
     new_schedule = [
-        {"zone": 1, "day": "M", "duration": 5},
-        {"zone": 2, "day": "W", "duration": 20},
+        {"zone": 1, "day": "M", "duration": 300},  # 5 minutes in seconds
+        {"zone": 2, "day": "W", "duration": 1200},  # 20 minutes in seconds
     ]
     mock = mocker.patch('isprinklr.schedule_service.pd.DataFrame.to_csv', return_value=None)
     try:
@@ -162,8 +162,8 @@ def test_update_schedule(mocker, schedule_service):
 
 def test_update_schedule_file_write_error(mocker, schedule_service):
     new_schedule = [
-        {"zone": 1, "day": "M", "duration": 5},
-        {"zone": 2, "day": "W", "duration": 20},
+        {"zone": 1, "day": "M", "duration": 300},  # 5 minutes in seconds
+        {"zone": 2, "day": "W", "duration": 1200},  # 20 minutes in seconds
     ]
     mock = mocker.patch('isprinklr.schedule_service.pd.DataFrame.to_csv', side_effect=IOError("File write error"))
     try:
@@ -174,34 +174,34 @@ def test_update_schedule_file_write_error(mocker, schedule_service):
         pytest.fail("Expected IOError")
 
 def test_get_scheduled_zones(schedule_service):
-    # Set up test schedule
+    # Set up test schedule with durations in seconds
     test_schedule = [
-        {"zone": 1, "day": "M", "duration": 10},  # Monday
-        {"zone": 2, "day": "ALL", "duration": 15},  # Every day
-        {"zone": 3, "day": "EO", "duration": 20},  # Odd days
-        {"zone": 4, "day": "NONE", "duration": 25},  # Never
-        {"zone": 5, "day": "M:W:F", "duration": 10}, # M:W:F
+        {"zone": 1, "day": "M", "duration": 600},      # Monday, 10 minutes
+        {"zone": 2, "day": "ALL", "duration": 900},    # Every day, 15 minutes
+        {"zone": 3, "day": "EO", "duration": 1200},    # Odd days, 20 minutes
+        {"zone": 4, "day": "NONE", "duration": 1500},  # Never, 25 minutes
+        {"zone": 5, "day": "M:W:F", "duration": 600},  # M:W:F, 10 minutes
     ]
     schedule_service.schedule = test_schedule
 
     # Test Monday on odd day (01/02/23)
     monday_zones = schedule_service.get_scheduled_zones("010223")
     assert len(monday_zones) == 3
-    assert {"zone": 1, "duration": 10} in monday_zones  # Monday
-    assert {"zone": 2, "duration": 15} in monday_zones  # ALL
-    assert {"zone": 5, "duration": 10} in monday_zones  # M:W:F
+    assert {"zone": 1, "duration": 600} in monday_zones  # Monday
+    assert {"zone": 2, "duration": 900} in monday_zones  # ALL
+    assert {"zone": 5, "duration": 600} in monday_zones  # M:W:F
 
     # Test Tuesday on odd day (01/03/23)
     tuesday_zones = schedule_service.get_scheduled_zones("010323")
     assert len(tuesday_zones) == 2
-    assert {"zone": 2, "duration": 15} in tuesday_zones  # ALL
-    assert {"zone": 3, "duration": 20} in tuesday_zones  # EO
+    assert {"zone": 2, "duration": 900} in tuesday_zones  # ALL
+    assert {"zone": 3, "duration": 1200} in tuesday_zones  # EO
 
     # Test Wednesday on even day (01/04/23)
     wednesday_zones = schedule_service.get_scheduled_zones("010423")
     assert len(wednesday_zones) == 2
-    assert {"zone": 5, "duration": 10} in wednesday_zones  # M:W:F
-    assert {"zone": 2, "duration": 15} in wednesday_zones  # ALL 
+    assert {"zone": 5, "duration": 600} in wednesday_zones  # M:W:F
+    assert {"zone": 2, "duration": 900} in wednesday_zones  # ALL 
 
     # Test invalid date format
     invalid_zones = schedule_service.get_scheduled_zones("invalid")

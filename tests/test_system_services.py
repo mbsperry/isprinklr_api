@@ -1,4 +1,4 @@
-import logging, os, pytest
+import logging, os, pytest, asyncio
 from logging.handlers import RotatingFileHandler
 from unittest.mock import AsyncMock, MagicMock, patch
 from typing import List
@@ -26,10 +26,10 @@ sprinklers: List[SprinklerConfig] = [
 ]
 
 schedule = [
-    ScheduleItem(zone=1, day="M", duration=30),
-    ScheduleItem(zone=2, day="Tu", duration=30),
-    ScheduleItem(zone=3, day="W", duration=30),
-    ScheduleItem(zone=4, day="Th", duration=30),
+    ScheduleItem(zone=1, day="M", duration=1800),  # 30 minutes in seconds
+    ScheduleItem(zone=2, day="Tu", duration=1800),
+    ScheduleItem(zone=3, day="W", duration=1800),
+    ScheduleItem(zone=4, day="Th", duration=1800),
 ]
 
 @pytest.fixture
@@ -79,12 +79,12 @@ def test_update_sprinklers_write_error(mock_system_status, mocker):
 
 @pytest.mark.asyncio
 async def test_start_sprinkler(mock_system_status):
-    sprinkler: SprinklerCommand = {"zone": 1, "duration": 5}
+    sprinkler: SprinklerCommand = {"zone": 1, "duration": 300}  # 5 minutes in seconds
     assert await mock_system_status.start_sprinkler(sprinkler) == True
 
 @pytest.mark.asyncio
 async def test_get_status_while_running(mock_system_status):
-    sprinkler: SprinklerCommand = {"zone": 1, "duration": 5}
+    sprinkler: SprinklerCommand = {"zone": 1, "duration": 300}  # 5 minutes in seconds
     assert await mock_system_status.start_sprinkler(sprinkler) == True
     status = mock_system_status.get_status()
     assert status["systemStatus"] == "active"
@@ -92,10 +92,42 @@ async def test_get_status_while_running(mock_system_status):
     assert status["duration"] > 1
 
 @pytest.mark.asyncio
+async def test_duration_decreases_with_time(mock_system_status):
+    """Test that the sprinkler duration decreases properly as time passes"""
+    # Mock time to start at 1000
+    current_time = 1000
+    with patch('isprinklr.system.time.time', return_value=current_time):
+        # Start a sprinkler with 300 second duration
+        sprinkler: SprinklerCommand = {"zone": 1, "duration": 300}
+        assert await mock_system_status.start_sprinkler(sprinkler) == True
+        
+        # Initial status should show full duration
+        status = mock_system_status.get_status()
+        assert status["duration"] == 300
+        
+        # Advance time by 100 seconds
+        current_time += 100
+        with patch('isprinklr.system.time.time', return_value=current_time):
+            status = mock_system_status.get_status()
+            assert status["duration"] == 200
+            
+        # Advance time by another 150 seconds
+        current_time += 150
+        with patch('isprinklr.system.time.time', return_value=current_time):
+            status = mock_system_status.get_status()
+            assert status["duration"] == 50
+            
+        # Advance time past duration
+        current_time += 100
+        with patch('isprinklr.system.time.time', return_value=current_time):
+            status = mock_system_status.get_status()
+            assert status["duration"] == 0
+
+@pytest.mark.asyncio
 async def test_start_sprinkler_while_running(mock_system_status):
     try: 
-        sprinkler1: SprinklerCommand = {"zone": 1, "duration": 5}
-        sprinkler2: SprinklerCommand = {"zone": 2, "duration": 5}
+        sprinkler1: SprinklerCommand = {"zone": 1, "duration": 300}  # 5 minutes in seconds
+        sprinkler2: SprinklerCommand = {"zone": 2, "duration": 300}  # 5 minutes in seconds
         await mock_system_status.start_sprinkler(sprinkler1)
         await mock_system_status.start_sprinkler(sprinkler2)
     except Exception as exc:
@@ -104,16 +136,16 @@ async def test_start_sprinkler_while_running(mock_system_status):
 @pytest.mark.asyncio
 async def test_start_sprinkler_with_invalid_zone(mock_system_status):
     try:
-        sprinkler: SprinklerCommand = {"zone": 5, "duration": 5}
+        sprinkler: SprinklerCommand = {"zone": 5, "duration": 300}  # 5 minutes in seconds
         await mock_system_status.start_sprinkler(sprinkler)
     except ValueError as exc:
         assert str(exc) == "Zone 5 not found"
 
 @pytest.mark.asyncio
 async def test_stop_system(mock_system_status):
-    sprinkler: SprinklerCommand = {"zone": 1, "duration": 5}
+    sprinkler: SprinklerCommand = {"zone": 1, "duration": 300}  # 5 minutes in seconds
     assert await mock_system_status.start_sprinkler(sprinkler) == True
-    assert mock_system_status.stop_system() == True
+    assert await mock_system_status.stop_system() == True
     status = mock_system_status.get_status()
     assert status["systemStatus"] == "inactive"
     assert status["active_zone"] == None
@@ -121,16 +153,53 @@ async def test_stop_system(mock_system_status):
     assert status["message"] == None
 
 @pytest.mark.asyncio
+async def test_zone_timer_auto_stop(mock_system_status):
+    """Test that the system automatically stops after duration elapses"""
+    # Create a mock sleep that we can control
+    sleep_complete = asyncio.Event()
+    async def mock_sleep(duration):
+        # Wait until the test signals it's time to complete
+        await sleep_complete.wait()
+    
+    # Mock both sleep and hardware interactions
+    with patch('isprinklr.system.asyncio.sleep', new=mock_sleep), \
+         patch('isprinklr.system.hunterserial.test_awake', return_value=True), \
+         patch('isprinklr.system.hunterserial.start_zone', return_value=True), \
+         patch('isprinklr.system.hunterserial.stop_zone', return_value=True):
+        
+        # Start a sprinkler with a 5-minute duration
+        sprinkler: SprinklerCommand = {"zone": 1, "duration": 300}
+        await mock_system_status.start_sprinkler(sprinkler)
+        
+        # Verify system is active before sleep completes
+        status = mock_system_status.get_status()
+        assert status["systemStatus"] == "active"
+        assert status["active_zone"] == 1
+        assert 0 < status["duration"] <= 300
+        
+        # Now let the sleep complete
+        sleep_complete.set()
+        # Wait for the timer task to finish
+        await mock_system_status._timer_task
+        
+        # Verify system has stopped
+        status = mock_system_status.get_status()
+        assert status["systemStatus"] == "inactive"
+        assert status["active_zone"] is None
+        assert status["duration"] == 0
+        assert status["message"] is None
+
+@pytest.mark.asyncio
 async def test_run_zone_sequence_success(mock_system_status):
     # Mock the required methods
     mock_system_status.start_sprinkler = AsyncMock(return_value=True)
-    mock_system_status.stop_system = MagicMock(return_value=True)
+    mock_system_status.stop_system = AsyncMock(return_value=True)  # Changed to AsyncMock
     mock_system_status._active_zone = None
 
-    # Mock asyncio.sleep
-    with patch('asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
-        # Test sequence
-        zone_sequence = [[1, 1], [2, 2]]  # Two zones, 1 and 2 minutes
+    # Mock asyncio.sleep at the system level
+    with patch('isprinklr.system.asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
+        # Test sequence - durations in seconds
+        zone_sequence = [[1, 60], [2, 120]]  # Two zones, 1 and 2 minutes in seconds
         
         # Run the sequence
         result = await mock_system_status.run_zone_sequence(zone_sequence)
@@ -140,25 +209,25 @@ async def test_run_zone_sequence_success(mock_system_status):
         assert mock_system_status.stop_system.call_count == 2
         
         # Verify the sequence of calls
-        mock_system_status.start_sprinkler.assert_any_call({"zone": 1, "duration": 1})
-        mock_system_status.start_sprinkler.assert_any_call({"zone": 2, "duration": 2})
+        mock_system_status.start_sprinkler.assert_any_call({"zone": 1, "duration": 60})
+        mock_system_status.start_sprinkler.assert_any_call({"zone": 2, "duration": 120})
         
-        # Verify sleep durations (minutes converted to seconds)
-        mock_sleep.assert_any_call(60)  # 1 minute for first zone
-        mock_sleep.assert_any_call(120)  # 2 minutes for second zone
+        # Verify sleep durations (already in seconds)
+        mock_sleep.assert_any_call(60)  # 1 minute in seconds
+        mock_sleep.assert_any_call(120)  # 2 minutes in seconds
         assert mock_sleep.call_count == 2
 
 @pytest.mark.asyncio
 async def test_run_zone_sequence_start_failure(mock_system_status):
     # Mock start_sprinkler to fail
     mock_system_status.start_sprinkler = AsyncMock(side_effect=Exception("Failed to start zone"))
-    mock_system_status.stop_system = MagicMock(return_value=True)
+    mock_system_status.stop_system = AsyncMock(return_value=True)  # Changed to AsyncMock
     mock_system_status._active_zone = None
 
-    # Mock asyncio.sleep
-    with patch('asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
-        # Test sequence
-        zone_sequence = [[1, 1], [2, 1]]
+    # Mock asyncio.sleep at the system level
+    with patch('isprinklr.system.asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
+        # Test sequence - durations in seconds
+        zone_sequence = [[1, 60], [2, 60]]  # Two zones, 1 minute each in seconds
         
         # Run the sequence
         result = await mock_system_status.run_zone_sequence(zone_sequence)
@@ -172,13 +241,13 @@ async def test_run_zone_sequence_start_failure(mock_system_status):
 async def test_run_zone_sequence_stop_failure(mock_system_status):
     # Mock start_sprinkler to succeed but stop_system to fail
     mock_system_status.start_sprinkler = AsyncMock(return_value=True)
-    mock_system_status.stop_system = MagicMock(side_effect=Exception("Failed to stop zone"))
+    mock_system_status.stop_system = AsyncMock(side_effect=Exception("Failed to stop zone"))  # Changed to AsyncMock
     mock_system_status._active_zone = 1
 
-    # Mock asyncio.sleep
-    with patch('asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
-        # Test sequence
-        zone_sequence = [[1, 1], [2, 1]]
+    # Mock asyncio.sleep at the system level
+    with patch('isprinklr.system.asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
+        # Test sequence - durations in seconds
+        zone_sequence = [[1, 60], [2, 60]]  # Two zones, 1 minute each in seconds
         
         # Run the sequence
         result = await mock_system_status.run_zone_sequence(zone_sequence)

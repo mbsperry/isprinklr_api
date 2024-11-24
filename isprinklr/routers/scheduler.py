@@ -39,7 +39,7 @@ async def get_schedule():
         List[ScheduleItem]: List of scheduled sprinkler operations, each containing:
             - zone (int): Zone number
             - day (str): Day abbreviation ("Su", "M", "Tu", "W", "Th", "F", "Sa")
-            - duration (int): Duration in minutes
+            - duration (int): Duration in seconds
     """
     return system_status.get_schedule()
 
@@ -83,7 +83,7 @@ async def update_schedule(schedule: List[ScheduleItem]):
         schedule (List[ScheduleItem]): List of schedule items, each containing:
             - zone (int): Zone number
             - day (str): Day abbreviation ("Su", "M", "Tu", "W", "Th", "F", "Sa")
-            - duration (int): Duration in minutes
+            - duration (int): Duration in seconds
             
     Returns:
         dict: Success message and updated schedule

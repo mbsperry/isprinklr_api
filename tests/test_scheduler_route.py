@@ -10,7 +10,7 @@ from isprinklr.main import app
 client = TestClient(app)
 
 def test_get_schedule(mocker):
-    mocker.patch('isprinklr.system.system_status.get_schedule', return_value=[{"zone": "zone1", "day": "M", "duration": 30}])
+    mocker.patch('isprinklr.system.system_status.get_schedule', return_value=[{"zone": "zone1", "day": "M", "duration": 1800}])  # 30 minutes in seconds
     response = client.get("/api/scheduler/schedule")
     assert response.status_code == 200
     schedule = response.json()
@@ -37,7 +37,7 @@ def test_update_schedule_on_off(mocker):
 
 def test_update_schedule(mocker):
     mocker.patch('isprinklr.system.system_status.update_schedule', return_value=True)
-    response = client.put("/api/scheduler/schedule", json=[{"zone": "1", "day": "M", "duration": 30}])
+    response = client.put("/api/scheduler/schedule", json=[{"zone": "1", "day": "M", "duration": 1800}])  # 30 minutes in seconds
     assert response.status_code == 200
     assert response.json()["message"] == "Success"
     schedule = response.json()["schedule"]

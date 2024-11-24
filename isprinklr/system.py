@@ -33,13 +33,14 @@ class SystemStatus:
     def __init__(self):
         self._status: str = "inactive"
         self._status_message: Optional[str] = None
-        self._duration: int = 0
         self._active_zone: Optional[int] = None
+        self._end_time: Optional[float] = None
         self._sprinklers: List[SprinklerConfig] = sprinkler_service.read_sprinklers(data_path)
         self._schedule_service: Any = ScheduleService(self._sprinklers)
         self._schedule_on_off: bool = SCHEDULE_ON_OFF
         self._last_run: Optional[int] = None
         self._last_schedule_run: Optional[int] = None
+        self._timer_task: Optional[asyncio.Task] = None
 
     @property
     def last_run(self) -> Optional[int]:
@@ -57,17 +58,25 @@ class SystemStatus:
     def schedule_on_off(self, value: bool):
         self._schedule_on_off = value
 
-    # Dummy function that just sleeps until the duration expires so that I know when the sprinkler turns off
+    # Duration is now in seconds
     async def _zone_timer(self, duration: int):
-        end_time = time.time() + duration*60
-        await asyncio.sleep(duration*60)  # Simulate a long-running process with a sleep for the given duration
-        self._update_status("inactive", None, None, 0)
+        try:
+            await asyncio.sleep(duration)  # Duration is already in seconds
+            # Stop the zone when timer completes
+            await self.stop_system()
+        except asyncio.CancelledError:
+            logger.debug("Zone timer cancelled")
+            raise
+        except Exception as e:
+            logger.error(f"Error in zone timer: {e}")
+            self._update_status("error", str(e), None)
+            raise
     
-    def _update_status(self, status: str, message: Optional[str] = None, active_zone: Optional[int] = None, duration: Optional[int] = 0):
+    def _update_status(self, status: str, message: Optional[str] = None, active_zone: Optional[int] = None, duration: Optional[int] = None):
         self._status = status
         self._status_message = message
         self._active_zone = active_zone
-        self._duration = duration
+        self._end_time = time.time() + duration if status == "active" and duration is not None else None
 
     def check_hunter_connection(self) -> bool:
         try:
@@ -75,27 +84,31 @@ class SystemStatus:
                 logger.debug('Arduino connected')
                 # If the system was previously in an error state, clear the status message
                 if self._status == "error":
-                    self._update_status("inactive", None, None, 0)
+                    self._update_status("inactive", None, None)
                 return True
             else:
                 logger.error('Arduino not responding')
-                self._update_status("error", "Arduino not responding", None, 0)
+                self._update_status("error", "Arduino not responding", None)
                 raise Exception("I/O: Arduino not responding")
         except Exception as exc:
             logger.error(f"Caught error {str(exc)}")
-            self._update_status("error", "Serial Port error", None, 0)
+            self._update_status("error", "Serial Port error", None)
             raise
 
     def get_status(self) -> dict:
         # No need to handle exception here, let the caller handle it
         self.check_hunter_connection()
 
-        logger.debug(f"System status: {self._status}, message: {self._status_message}, active zone: {self._active_zone}, duration: {self._duration}")
+        duration = 0
+        if self._status == "active" and self._end_time is not None:
+            duration = int(max(0, self._end_time - time.time()))
+
+        logger.debug(f"System status: {self._status}, message: {self._status_message}, active zone: {self._active_zone}, duration: {duration}")
         return {
             "systemStatus": self._status,
             "message": self._status_message,
             "active_zone": self._active_zone,
-            "duration": self._duration
+            "duration": duration
         }
 
     def get_sprinklers(self) -> List[SprinklerConfig]:
@@ -126,7 +139,7 @@ class SystemStatus:
         """Start a sprinkler for a specified duration.
         
         Args:
-            sprinkler: SprinklerCommand object containing zone number and duration
+            sprinkler: SprinklerCommand object containing zone number and duration (in seconds)
             
         Returns:
             True if the sprinkler was started successfully
@@ -143,25 +156,29 @@ class SystemStatus:
 
         if not self._active_zone:
             try:
-                if (hunterserial.start_zone(sprinkler['zone'], sprinkler['duration'])):
-                    logger.debug(f"Started zone {sprinkler['zone']} for {sprinkler['duration']} minutes: success")
+                # Convert seconds to minutes for the hardware interface
+                duration_minutes = int(sprinkler['duration'] // 60)
+                if (hunterserial.start_zone(sprinkler['zone'], duration_minutes)):
+                    logger.debug(f"Started zone {sprinkler['zone']} for {sprinkler['duration']} seconds: success")
                     self._update_status("active", None, sprinkler['zone'], sprinkler['duration'])
-                    sprinkler_tasks = BackgroundTasks()
-                    sprinkler_tasks.add_task(self._zone_timer, sprinkler['duration'])  # Start the long-running process in the background
+                    
+                    
+                    # Create and start new timer task
+                    self._timer_task = asyncio.create_task(self._zone_timer(sprinkler['duration']))
                     return True
                 else:
-                    logger.error(f"Started zone {sprinkler['zone']} for {sprinkler['duration']} minutes: failed")
-                    self._update_status("error", "Command Failed", None, 0)
+                    logger.error(f"Started zone {sprinkler['zone']} for {sprinkler['duration']} seconds: failed")
+                    self._update_status("error", "Command Failed", None)
                     # raise an IOError
                     raise IOError("Command Failed")
             except IOError as exc:
-                self._update_status("error", "Serial Port error", None, 0)
+                self._update_status("error", "Serial Port error", None)
                 raise
         else:
             logger.error(f"Failed to start zone {sprinkler['zone']}, system already active")
             raise Exception(f"Failed to start zone {sprinkler['zone']}, system already active. Active zone: {self._active_zone}")
     
-    def stop_system(self) -> bool:
+    async def stop_system(self) -> bool:
         """Stop the currently running sprinkler and deactivate the system.
         
         Returns:
@@ -177,13 +194,22 @@ class SystemStatus:
             try:
                 if (hunterserial.stop_zone(self._active_zone)):
                     logger.debug(f"Stopped zone {self._active_zone}")
-                    self._update_status("inactive", None, None, 0)
+                    # Cancel any running timer
+                    if self._timer_task and not self._timer_task.done():
+                        self._timer_task.cancel()
+                        try:
+                            await self._timer_task
+                        except asyncio.CancelledError:
+                            logger.debug("Zone timer cancellation confirmed")
+                            pass
+                    self._timer_task = None
+                    self._update_status("inactive", None, None)
                     return True
                 else:
                     logger.error(f"Failed to stop zone {self._active_zone}")
                     raise IOError("Command Failed")
             except IOError as exc:
-                self._update_status("error", "Serial Port error", None, 0)
+                self._update_status("error", "Serial Port error", None)
                 raise
         else:
             logger.error("Failed to stop zone, system is not active")
@@ -199,19 +225,19 @@ class SystemStatus:
         """Run a sequence of zones for specified durations.
         
         Args:
-            zone_sequence: List of [zone, duration] pairs to run sequentially
+            zone_sequence: List of [zone, duration] pairs to run sequentially (duration in seconds)
             
         Returns:
             True if all zones completed successfully, False otherwise
         """
         try:
             for zone, duration in zone_sequence:
-                logger.debug(f"Starting zone {zone} for {duration} minutes")
+                logger.debug(f"Starting zone {zone} for {duration} seconds")
                 sprinkler = {"zone": zone, "duration": duration}
                 await self.start_sprinkler(sprinkler)
-                await asyncio.sleep(duration * 60)  # Convert minutes to seconds
+                await asyncio.sleep(duration)  # Duration already in seconds
                 try:
-                    self.stop_system()
+                    await self.stop_system()
                 except Exception as e:
                     logger.error(f"Error running zone sequence: {e}")
                     return False
