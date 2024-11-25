@@ -3,9 +3,8 @@
 # Needs to open the csv file and determine which sprinklers need to be run that day and for how long.
 # Then it needs to start the sprinklers using the API defined in api.py and wait for them to finish.
 
-import time, logging
-import requests
-from typing import Annotated, List
+import logging
+from typing import List
 from fastapi import APIRouter, HTTPException
 
 from ..schemas import ScheduleItem

@@ -1,5 +1,4 @@
-import time, logging
-import requests
+import logging
 from fastapi import APIRouter, HTTPException
 from typing import List
 

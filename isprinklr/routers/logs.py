@@ -1,6 +1,5 @@
 import logging
 from fastapi import APIRouter, HTTPException
-from typing import List
 
 from ..paths import logs_path
 

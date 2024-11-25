@@ -39,6 +39,18 @@ def mock_system_status(mocker):
     system_status = SystemStatus()
     return system_status
 
+@pytest.fixture(autouse=True)
+async def cleanup_tasks():
+    yield
+    # Clean up any pending tasks after each test
+    tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+    for task in tasks:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
 def test_get_status(mock_system_status):
     assert mock_system_status.get_status() == {
         "systemStatus": "inactive",
@@ -180,7 +192,8 @@ async def test_zone_timer_auto_stop(mock_system_status):
         # Now let the sleep complete
         sleep_complete.set()
         # Wait for the timer task to finish
-        await mock_system_status._timer_task
+        if mock_system_status._timer_task:
+            await mock_system_status._timer_task
         
         # Verify system has stopped
         status = mock_system_status.get_status()

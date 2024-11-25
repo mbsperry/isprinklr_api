@@ -2,7 +2,7 @@ import pandas as pd
 import logging
 from typing import List
 
-from isprinklr.schemas import ScheduleItem, SprinklerConfig
+from isprinklr.schemas import SprinklerConfig
 
 logger = logging.getLogger(__name__)
 

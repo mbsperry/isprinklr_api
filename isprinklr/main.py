@@ -1,7 +1,6 @@
 import os, logging
 from logging.handlers import RotatingFileHandler
-from fastapi import FastAPI, HTTPException, Body, Depends
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, Depends
 
 from isprinklr.paths import logs_path, data_path, config_path
 
@@ -26,4 +25,3 @@ app.include_router(scheduler.router)
 app.include_router(system.router)
 app.include_router(sprinklers.router)
 app.include_router(logs.router)
-# TODO: api path to update sprinkler names
