@@ -17,23 +17,22 @@ async def get_logs(
     debug_level: str = None,
     lines: int = 100
 ):
-    """
-    Retrieve and filter system logs.
-    
-    Args:
-        module_name (str, optional): Filter logs by module name (e.g., 'sprinkler_service')
-        debug_level (str, optional): Filter logs by debug level (DEBUG, INFO, ERROR, etc.)
-        lines (int, optional): Number of most recent log lines to return (1-200, default: 100)
-        
-    Returns:
-        List[str]: Filtered log entries, each entry formatted as:
-            "YYYY-MM-DD HH:MM:SS module_name LEVEL: message"
-        
-    Raises:
-        HTTPException: 
-            - 400: If lines parameter is outside valid range (1-200)
-            - 404: If log file is not found
-            - 500: If log file cannot be read
+    """Retrieve and filter system logs.
+
+Parameters:
+* module_name (str, optional): Filter logs by module name (e.g., 'sprinkler_service')
+* debug_level (str, optional): Filter logs by debug level (DEBUG, INFO, ERROR, etc.)
+* lines (int, optional): Number of most recent log lines to return (1-200, default: 100)
+
+Returns:
+* List[str]: Filtered log entries, each entry formatted as:
+  * "YYYY-MM-DD HH:MM:SS module_name LEVEL: message"
+
+Raises:
+* HTTPException:
+  * 400: If lines parameter is outside valid range (1-200)
+  * 404: If log file is not found
+  * 500: If log file cannot be read
     """
     if lines < 0 or lines > 200:
         raise HTTPException(status_code=400, detail="Invalid number of lines")

@@ -12,18 +12,17 @@ logger = logging.getLogger(__name__)
 
 @router.get("/status")
 async def get_status():
-    """
-    Get the current system status including hardware connectivity check, active zones, remaining duration.
-    
-    Returns:
-        dict: System status containing:
-            - systemStatus (str): Current system status ("active", "inactive", "error")
-            - message (str | None): Status message or error description
-            - active_zone (int | None): Currently active sprinkler zone
-            - duration (int): Remaining duration in seconds for active zone, 0 if inactive
-            
-    Raises:
-        HTTPException: If the system status cannot be retrieved
+    """Get the current system status including hardware connectivity check, active zones, remaining duration.
+
+Returns:
+* Dictionary containing:
+  * systemStatus (str): Current system status ("active", "inactive", "error")
+  * message (str | None): Status message or error description
+  * active_zone (int | None): Currently active sprinkler zone
+  * duration (int): Remaining duration in seconds for active zone, 0 if inactive
+
+Raises:
+* HTTPException: If the system status cannot be retrieved
     """
     try:
         return system_status.get_status()
