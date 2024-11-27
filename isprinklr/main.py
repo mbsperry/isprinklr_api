@@ -8,17 +8,26 @@ from isprinklr.paths import logs_path, data_path, config_path
 if not os.path.exists(logs_path):
     os.makedirs(logs_path)
 
-from isprinklr.system_status import SystemStatus
+# Import singletons from package root
+from isprinklr import system_status, system_controller
 from isprinklr.routers import scheduler, v1, system, sprinklers, logs
-
-system_status = SystemStatus()
 
 logging.basicConfig(handlers=[RotatingFileHandler(logs_path + '/api.log', maxBytes=1024*1024, backupCount=1, mode='a')],
                     format='%(asctime)s %(name)s %(levelname)s: %(message)s', datefmt='%m-%d-%Y %H:%M:%S',
                     level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(dependencies=[Depends(lambda: system_status)])
+# Define dependencies
+async def get_system_status():
+    return system_status
+
+async def get_system_controller():
+    return system_controller
+
+app = FastAPI(dependencies=[
+    Depends(get_system_status),
+    Depends(get_system_controller)
+])
 
 app.include_router(v1.router)
 app.include_router(scheduler.router)

@@ -24,6 +24,13 @@ except Exception as e:
     logger.critical(f"Failed to load api.conf: {e}")
 
 class SystemStatus:
+    """
+    Manages the system state and configuration for the sprinkler system.
+    
+    The class is implemented as a singleton to ensure consistent system state
+    across the application.
+    """
+
     def __init__(self):
         self._status: str = "inactive"
         self._status_message: Optional[str] = None
@@ -61,31 +68,49 @@ class SystemStatus:
 
     @property
     def schedule(self) -> list:
-        """Get the current schedule.
-        
-        Returns:
-            list: Current schedule
-        """
         return self._schedule_service.schedule
 
     def update_schedule(self, schedule: list[ScheduleItem]):
-        """Update the schedule.
+        """
+        Update the sprinkler schedule.
         
         Args:
-            schedule: New schedule to set
+            schedule (list[ScheduleItem]): New schedule to set
             
         Returns:
-            Updated schedule
+            list: The updated schedule
+            
+        Raises:
+            Exception: If schedule update fails
         """
         return self._schedule_service.update_schedule(schedule)
     
     def update_status(self, status: str, message: Optional[str] = None, active_zone: Optional[int] = None, duration: Optional[int] = None):
+        """
+        Update the system status.
+        
+        Args:
+            status (str): New status to set ('active' or 'inactive')
+            message (Optional[str]): Optional status message
+            active_zone (Optional[int]): Zone number that is active, or None
+            duration (Optional[int]): Duration in seconds for the active status, or None    
+        """
         self._status = status
         self._status_message = message
         self._active_zone = active_zone
         self._end_time = time.time() + duration if status == "active" and duration is not None else None
 
     def get_status(self) -> dict:
+        """
+        Get the current system status.
+        
+        Returns:
+            dict: Dictionary containing current status information:
+                - systemStatus (str): Current status ('active' or 'inactive')
+                - message (Optional[str]): Current status message
+                - active_zone (Optional[int]): Currently active zone number
+                - duration (int): Remaining duration in seconds if active
+        """
         duration = 0
         if self._status == "active" and self._end_time is not None:
             duration = int(max(0, self._end_time - time.time()))
@@ -99,13 +124,15 @@ class SystemStatus:
         }
     
     def update_sprinklers(self, sprinklers: List[SprinklerConfig]) -> List[SprinklerConfig]:
-        """Updates the sprinkler configurations.
+        """
+        Updates the sprinkler configurations.
         
         Args:
-            sprinklers: List of SprinklerConfig objects containing zone number and name
+            sprinklers (List[SprinklerConfig]): List of sprinkler configurations to set.
+                Each config must contain zone number and name.
             
         Returns:
-            The updated list of sprinkler configurations
+            List[SprinklerConfig]: The updated list of sprinkler configurations
             
         Raises:
             ValueError: If validation fails (empty list, >12 sprinklers, duplicate zones/names)

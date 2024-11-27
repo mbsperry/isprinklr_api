@@ -1,5 +1,5 @@
 zone,day,duration
-1,EO,1
-2,ALL,1
-3,M:W:F,1
-4,Tu:Th,1
+1,EO,60
+2,ALL,120
+3,M:W:F,180
+4,Tu:Th,240

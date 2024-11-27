@@ -3,7 +3,7 @@ from typing import Optional
 
 import isprinklr.sprinklr_serial as hunterserial
 from .schemas import SprinklerCommand
-from .system_status import system_status
+from . import system_status
 
 logger = logging.getLogger(__name__)
 

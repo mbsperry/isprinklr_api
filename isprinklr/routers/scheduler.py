@@ -8,7 +8,7 @@ from typing import List
 from fastapi import APIRouter, HTTPException
 
 from ..schemas import ScheduleItem
-from ..system_status import system_status
+from .. import system_status
 
 logger = logging.getLogger(__name__)
 

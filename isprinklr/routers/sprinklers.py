@@ -2,8 +2,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 from typing import List
 
-from ..system_status import system_status
-from ..system_controller import system_controller
+from .. import system_status, system_controller
 from ..schemas import SprinklerCommand, SprinklerConfig
 
 router = APIRouter(

@@ -14,6 +14,26 @@ class ScheduleService:
 
     @staticmethod
     def validate_schedule(schedule: list[ScheduleItem], sprinklers: list[dict]):
+        """
+        Validate a sprinkler schedule against constraints.
+
+        Args:
+            schedule (list[ScheduleItem]): List of schedule items containing:
+                * zone (int): Zone number.
+                * day (str): Day abbreviation or pattern ("M", "Tu", "W", "Th", "F", "Sa", "Su", "ALL", "NONE", "EO").
+                * duration (int): Duration in seconds.
+            sprinklers (list[dict]): List of available sprinkler configurations with "zone" as a key.
+
+        Raises:
+            ValueError: If any validation constraint is violated, such as:
+                - Duplicate zones in the schedule.
+                - Invalid zone numbers not present in the available sprinkler configurations.
+                - Invalid duration (must be between 0 and 7200 seconds).
+                - Invalid day definitions or patterns.
+
+        Returns:
+            bool: True if the schedule passes all validation checks.
+        """
         valid_days = {"M", "Tu", "W", "Th", "F", "Sa", "Su", "ALL", "NONE", "EO"}
         sprinkler_zones = [x["zone"] for x in sprinklers]
         # check that each zone is only used once
@@ -42,6 +62,16 @@ class ScheduleService:
         return True
 
     def read_schedule(self):
+        """
+        Reads the schedule from a CSV file and validates it against the list of sprinklers.
+        
+        Returns:
+            The schedule as a list of ScheduleItems if the validation is successful, otherwise an empty list.
+        
+        Raises:
+            ValueError: If the schedule contains invalid data
+            Exception: If there is an error reading the schedule from the CSV file
+        """
         try:
             schedule_df = pd.read_csv(data_path + "/schedule.csv", usecols=["zone", "day", "duration"])
             schedule = schedule_df.to_dict("records")
@@ -57,6 +87,19 @@ class ScheduleService:
         return schedule
     
     def update_schedule(self, schedule: list[ScheduleItem]):
+        """
+        Update the schedule configuration.
+
+        Args:
+            schedule: New schedule to set as a list of ScheduleItems.
+
+        Returns:
+            Updated schedule
+
+        Raises:
+            ValueError: If the schedule contains invalid data
+            Exception: If there is an error writing the schedule to the CSV file
+        """
         try:
             self.validate_schedule(schedule, self.sprinklers)
         except ValueError as e:

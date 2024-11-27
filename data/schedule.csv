@@ -1,9 +1,9 @@
 zone,day,duration
-1,EO,1
-2,ALL,1
-3,M:W:F,1
-4,Tu:Th,1
-5,W:Th:F,1
-6,Sa:Su,1
-7,NONE,1
-8,Su:Th,1
+1,EO,60
+2,ALL,60
+3,M:W:F,60
+4,Tu:Th,60
+5,W:Th:F,60
+6,Sa:Su,60
+7,NONE,60
+8,Su:Th,60

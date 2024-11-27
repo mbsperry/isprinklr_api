@@ -1,8 +1,7 @@
 import logging
 from fastapi import APIRouter, HTTPException
 
-from ..system_status import system_status
-from ..system_controller import system_controller
+from .. import system_status, system_controller
 
 router = APIRouter(
     prefix="/api/system",
