@@ -8,7 +8,7 @@ from isprinklr.paths import logs_path, data_path, config_path
 if not os.path.exists(logs_path):
     os.makedirs(logs_path)
 
-from isprinklr.system import SystemStatus
+from isprinklr.system_status import SystemStatus
 from isprinklr.routers import scheduler, v1, system, sprinklers, logs
 
 system_status = SystemStatus()

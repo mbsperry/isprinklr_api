@@ -2,7 +2,8 @@ import logging
 from fastapi import APIRouter, HTTPException
 from typing import List
 
-from ..system import system_status
+from ..system_status import system_status
+from ..system_controller import system_controller
 from ..schemas import SprinklerCommand, SprinklerConfig
 
 router = APIRouter(
@@ -22,9 +23,9 @@ Returns:
 Raises:
 * HTTPException: If sprinkler data cannot be loaded
     """
-    if not system_status.get_sprinklers():
+    if not system_status.sprinklers:
         raise HTTPException(status_code=500, detail="Failed to load sprinklers data, see logs for details")
-    return system_status.get_sprinklers()
+    return system_status.sprinklers
 
 @router.put("/")
 async def update_sprinklers(sprinklers: List[SprinklerConfig]):
@@ -70,7 +71,7 @@ Raises:
     """
     logger.debug(f'Received: {sprinkler}')
     try:
-        await system_status.start_sprinkler(sprinkler)
+        await system_controller.start_sprinkler(sprinkler)
         return {"message": f"Zone {sprinkler['zone']} started"}
     except ValueError as exc:
         logger.error(f"Failed to start sprinkler: {exc}")
@@ -90,7 +91,7 @@ Raises:
 * HTTPException: If the system cannot be stopped due to an error
     """
     try:
-        await system_status.stop_system()
+        await system_controller.stop_system()
         return {"message": "System stopped"}
     except Exception as exc:
         logger.error(f"Failed to stop system: {exc}")

@@ -8,7 +8,7 @@ from typing import List
 from fastapi import APIRouter, HTTPException
 
 from ..schemas import ScheduleItem
-from ..system import system_status
+from ..system_status import system_status
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ List[ScheduleItem] containing:
 * day (str): Day abbreviation ("Su", "M", "Tu", "W", "Th", "F", "Sa")
 * duration (int): Duration in seconds
     """
-    return system_status.get_schedule()
+    return system_status.schedule
 
 @router.get("/on_off")
 async def get_schedule_on_off():
@@ -90,7 +90,7 @@ Raises:
     """
     try:
         system_status.update_schedule(schedule)
-        return {"message": "Success", "schedule": system_status.get_schedule()}
+        return {"message": "Success", "schedule": system_status.schedule}
     except ValueError as exc:
         logger.error(f"Failed to update schedule: {exc}")
         raise HTTPException(status_code=400, detail=str(exc))

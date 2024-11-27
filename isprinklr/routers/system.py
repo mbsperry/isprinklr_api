@@ -1,7 +1,8 @@
 import logging
 from fastapi import APIRouter, HTTPException
 
-from ..system import system_status
+from ..system_status import system_status
+from ..system_controller import system_controller
 
 router = APIRouter(
     prefix="/api/system",
@@ -25,6 +26,9 @@ Raises:
 * HTTPException: If the system status cannot be retrieved
     """
     try:
+        # Check hardware connection first
+        system_controller.check_hunter_connection()
+        # Then return current system status
         return system_status.get_status()
     except Exception as exc:
         logger.error(f"Failed to get system status: {exc}")
