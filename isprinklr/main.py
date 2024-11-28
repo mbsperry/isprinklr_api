@@ -9,8 +9,9 @@ if not os.path.exists(logs_path):
     os.makedirs(logs_path)
 
 # Import singletons from package root
-from isprinklr import system_status, system_controller
-from isprinklr.routers import scheduler, v1, system, sprinklers, logs
+from isprinklr.system_status import system_status
+from isprinklr.system_controller import system_controller
+from isprinklr.routers import scheduler, system, sprinklers, logs
 
 logging.basicConfig(handlers=[RotatingFileHandler(logs_path + '/api.log', maxBytes=1024*1024, backupCount=1, mode='a')],
                     format='%(asctime)s %(name)s %(levelname)s: %(message)s', datefmt='%m-%d-%Y %H:%M:%S',
@@ -24,12 +25,12 @@ async def get_system_status():
 async def get_system_controller():
     return system_controller
 
+# This API is designed to be run inside a secure local netork. As such, there is no need for authentication or CORS middleware
 app = FastAPI(dependencies=[
     Depends(get_system_status),
     Depends(get_system_controller)
 ])
 
-app.include_router(v1.router)
 app.include_router(scheduler.router)
 app.include_router(system.router)
 app.include_router(sprinklers.router)

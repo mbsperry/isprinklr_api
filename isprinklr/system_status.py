@@ -37,7 +37,7 @@ class SystemStatus:
         self._active_zone: Optional[int] = None
         self._end_time: Optional[float] = None
         self._sprinklers: List[SprinklerConfig] = sprinkler_service.read_sprinklers(data_path)
-        self._schedule_service: Any = ScheduleService(self._sprinklers)
+        self._schedule_service: ScheduleService = ScheduleService(self._sprinklers)
         self._schedule_on_off: bool = False  # Initialize to False
         self._last_run: Optional[int] = None
         self._last_schedule_run: Optional[int] = None
@@ -67,18 +67,18 @@ class SystemStatus:
         return self._sprinklers
 
     @property
-    def schedule(self) -> list:
+    def schedule(self) -> List[ScheduleItem]:
         return self._schedule_service.schedule
 
-    def update_schedule(self, schedule: list[ScheduleItem]):
+    def update_schedule(self, schedule: List[ScheduleItem]) -> List[ScheduleItem]:
         """
         Update the sprinkler schedule.
         
         Args:
-            schedule (list[ScheduleItem]): New schedule to set
+            schedule (List[ScheduleItem]): New schedule to set
             
         Returns:
-            list: The updated schedule
+            List[ScheduleItem]: The updated schedule
             
         Raises:
             Exception: If schedule update fails

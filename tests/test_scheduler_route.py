@@ -43,8 +43,12 @@ def test_update_schedule_on_off(mocker):
     assert response.json() == {"schedule_on_off": False}
 
 def test_update_schedule(mocker):
-    mocker.patch('isprinklr.system_status.system_status.update_schedule', return_value=True)
-    response = client.put("/api/scheduler/schedule", json=[{"zone": "1", "day": "M", "duration": 1800}])  # 30 minutes in seconds
+    new_schedule = [
+        {"zone": 1, "day": "M", "duration": 1800}, 
+        {"zone": 2, "day": "W", "duration": 1800}
+    ]
+    mocker.patch('isprinklr.system_status.system_status.update_schedule', return_value=new_schedule)
+    response = client.put("/api/scheduler/schedule", json=new_schedule)
     assert response.status_code == 200
     assert response.json()["message"] == "Success"
     schedule = response.json()["schedule"]

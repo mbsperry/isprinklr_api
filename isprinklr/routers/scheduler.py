@@ -8,7 +8,7 @@ from typing import List
 from fastapi import APIRouter, HTTPException
 
 from ..schemas import ScheduleItem
-from .. import system_status
+from isprinklr.system_status import system_status
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ Returns:
 async def update_schedule_on_off(schedule_on_off: bool):
     """Enable or disable the automated schedule.
 
-Parameters:
+Parameters (query):
 * schedule_on_off (bool): True to enable scheduling, False to disable
 
 Returns:
@@ -89,8 +89,8 @@ Raises:
 * HTTPException: If the update fails due to invalid data or server error
     """
     try:
-        system_status.update_schedule(schedule)
-        return {"message": "Success", "schedule": system_status.schedule}
+        updated_schedule = system_status.update_schedule(schedule)
+        return {"message": "Success", "schedule": updated_schedule}
     except ValueError as exc:
         logger.error(f"Failed to update schedule: {exc}")
         raise HTTPException(status_code=400, detail=str(exc))

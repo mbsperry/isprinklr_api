@@ -1,19 +1,20 @@
 import pandas as pd
 import logging
 from datetime import datetime
+from typing import List, Optional
 
 from isprinklr.paths import data_path
-from isprinklr.schemas import ScheduleItem
+from isprinklr.schemas import ScheduleItem, SprinklerConfig
 
 logger = logging.getLogger(__name__)
 
 class ScheduleService:
-    def __init__(self, sprinklers: list[dict] = None):
+    def __init__(self, sprinklers: List[SprinklerConfig] | None = None):
         self.sprinklers = sprinklers if sprinklers is not None else []
         self.schedule = self.read_schedule() if sprinklers else []
 
     @staticmethod
-    def validate_schedule(schedule: list[ScheduleItem], sprinklers: list[dict]):
+    def validate_schedule(schedule: list[ScheduleItem], sprinklers: list[SprinklerConfig]) -> bool:
         """
         Validate a sprinkler schedule against constraints.
 
@@ -61,7 +62,7 @@ class ScheduleService:
                     raise ValueError("Validation Error: Invalid day")
         return True
 
-    def read_schedule(self):
+    def read_schedule(self) -> List[ScheduleItem]:
         """
         Reads the schedule from a CSV file and validates it against the list of sprinklers.
         
@@ -86,7 +87,7 @@ class ScheduleService:
         logger.debug(f"Schedule: {schedule}")
         return schedule
     
-    def update_schedule(self, schedule: list[ScheduleItem]):
+    def update_schedule(self, schedule: list[ScheduleItem]) -> List[ScheduleItem]:
         """
         Update the schedule configuration.
 
@@ -109,12 +110,13 @@ class ScheduleService:
             schedule_df = pd.DataFrame(schedule)
             schedule_df.to_csv(data_path + "/schedule.csv", index=False)
             self.schedule = schedule
-            return True
+            logger.debug(f"Schedule updated to: {schedule}")
+            return schedule
         except Exception as e:
             logger.error(f"Failed to update schedule data: {e}")
             raise
 
-    def get_scheduled_zones(self, date_str: str) -> list[dict]:
+    def get_scheduled_zones(self, date_str: str) -> List[SprinklerConfig]:
         """Get zones scheduled to run on the specified date.
         
         Args:
