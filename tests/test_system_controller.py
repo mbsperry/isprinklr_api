@@ -1,15 +1,13 @@
 import logging, os, pytest, asyncio
 from logging.handlers import RotatingFileHandler
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, patch
 from typing import List
 
 from context import isprinklr
 from isprinklr.paths import logs_path
-from isprinklr.schemas import ScheduleItem, SprinklerConfig, SprinklerCommand
+from isprinklr.schemas import SprinklerConfig, SprinklerCommand
 from isprinklr.system_controller import SystemController
 from isprinklr.system_status import SystemStatus
-import isprinklr.sprinkler_service
-import isprinklr.schedule_service
 
 logging.basicConfig(handlers=[RotatingFileHandler(logs_path + '/test.log', maxBytes=1024*1024, backupCount=1, mode='a')],
                     datefmt='%m-%d-%Y %H:%M:%S',
@@ -27,18 +25,12 @@ sprinklers: List[SprinklerConfig] = [
     {"zone": 4, "name": "Driveway"},    
 ]
 
-schedule = [
-    ScheduleItem(zone=1, day="M", duration=1800),  # 30 minutes in seconds
-    ScheduleItem(zone=2, day="Tu", duration=1800),
-    ScheduleItem(zone=3, day="W", duration=1800),
-    ScheduleItem(zone=4, day="Th", duration=1800),
-]
-
 @pytest.fixture
 def mock_system_status(mocker):
     # Mock the sprinkler service to return our test data
     mocker.patch('isprinklr.sprinkler_service.read_sprinklers', return_value=sprinklers)
-    mocker.patch('isprinklr.schedule_service.ScheduleService.read_schedule', return_value=schedule)
+    mocker.patch('isprinklr.system_status.schedule_database.set_sprinklers')
+    mocker.patch('isprinklr.system_status.schedule_database.load_database')
     system_status = SystemStatus()
     return system_status
 

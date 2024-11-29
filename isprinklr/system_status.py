@@ -3,10 +3,13 @@ from typing import Any, Optional, List
 
 from .paths import config_path, data_path
 import isprinklr.sprinkler_service as sprinkler_service
-from .schedule_service import ScheduleService
-from .schemas import ScheduleItem, SprinklerConfig
+from .schedule_database import ScheduleDatabase
+from .schemas import SprinklerConfig
 
 logger = logging.getLogger(__name__)
+
+# Systemwide ScheduleDatabase singleton
+schedule_database = ScheduleDatabase()
 
 try:
     with open(config_path + "/api.conf", "r") as f:
@@ -37,10 +40,13 @@ class SystemStatus:
         self._active_zone: Optional[int] = None
         self._end_time: Optional[float] = None
         self._sprinklers: List[SprinklerConfig] = sprinkler_service.read_sprinklers(data_path)
-        self._schedule_service: ScheduleService = ScheduleService(self._sprinklers)
         self._schedule_on_off: bool = False  # Initialize to False
         self._last_run: Optional[int] = None
         self._last_schedule_run: Optional[int] = None
+        
+        # Initialize schedule_database with sprinklers
+        schedule_database.set_sprinklers(self._sprinklers)
+        schedule_database.load_database()
 
     @property
     def last_run(self) -> Optional[int]:
@@ -66,25 +72,6 @@ class SystemStatus:
     def sprinklers(self) -> List[SprinklerConfig]:
         return self._sprinklers
 
-    @property
-    def schedule(self) -> List[ScheduleItem]:
-        return self._schedule_service.schedule
-
-    def update_schedule(self, schedule: List[ScheduleItem]) -> List[ScheduleItem]:
-        """
-        Update the sprinkler schedule.
-        
-        Args:
-            schedule (List[ScheduleItem]): New schedule to set
-            
-        Returns:
-            List[ScheduleItem]: The updated schedule
-            
-        Raises:
-            Exception: If schedule update fails
-        """
-        return self._schedule_service.update_schedule(schedule)
-    
     def update_status(self, status: str, message: Optional[str] = None, active_zone: Optional[int] = None, duration: Optional[int] = None):
         """
         Update the system status.
@@ -141,6 +128,7 @@ class SystemStatus:
         try:
             sprinkler_service.write_sprinklers(data_path, sprinklers)
             self._sprinklers = sprinklers
+            schedule_database.set_sprinklers(sprinklers)
             return sprinklers
         except Exception as e:
             logger.error(f"Failed to write sprinklers data: {e}")
