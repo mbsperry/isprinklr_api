@@ -90,7 +90,6 @@ def test_schedule_list_validation():
     """Test validation of schedule lists"""
     good_schedule_list = [
         {
-            "sched_id": 1,
             "schedule_name": "Default Schedule",
             "schedule_items": [
                 {"zone": 1, "day": "M", "duration": 600},
@@ -98,7 +97,6 @@ def test_schedule_list_validation():
             ]
         },
         {
-            "sched_id": 2,
             "schedule_name": "Summer Schedule",
             "schedule_items": [
                 {"zone": 3, "day": "W", "duration": 600},
@@ -109,15 +107,6 @@ def test_schedule_list_validation():
 
     # Test valid schedule list
     assert validate_schedule_list(good_schedule_list, good_sprinklers) == True
-
-    # Test duplicate schedule IDs
-    bad_schedule_list = deepcopy(good_schedule_list)
-    bad_schedule_list[1]["sched_id"] = 1
-    try:
-        validate_schedule_list(bad_schedule_list, good_sprinklers)
-        pytest.fail("Expected ValueError for duplicate schedule IDs")
-    except ValueError:
-        pass
 
     # Test duplicate schedule names
     bad_schedule_list = deepcopy(good_schedule_list)

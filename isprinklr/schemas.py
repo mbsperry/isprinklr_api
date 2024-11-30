@@ -1,6 +1,6 @@
 from typing_extensions import TypedDict
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 class SprinklerCommand(TypedDict):
     zone: int
@@ -16,13 +16,12 @@ class ScheduleItem(TypedDict):
     duration: int
 
 class Schedule(TypedDict):
-    sched_id: int
     schedule_name: str
     schedule_items: List[ScheduleItem]
 
 class ScheduleList(TypedDict):
     schedules: List[Schedule]
-    active_schedule: int
+    active_schedule: Optional[str]
 
 class ScheduleOnOff(BaseModel):
     schedule_on_off: bool

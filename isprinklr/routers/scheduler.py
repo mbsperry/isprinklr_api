@@ -25,12 +25,12 @@ async def get_schedules() -> List[Schedule]:
     """
     return schedule_database.schedules
 
-@router.get("/schedule/{schedule_id}")
-async def get_schedule(schedule_id: int) -> Schedule:
-    """Get a specific schedule by ID.
+@router.get("/schedule/{schedule_name}")
+async def get_schedule(schedule_name: str) -> Schedule:
+    """Get a specific schedule by name.
 
     Parameters:
-        schedule_id (int): ID of the schedule to retrieve
+        schedule_name (str): Name of the schedule to retrieve
 
     Returns:
         Schedule: The requested schedule
@@ -39,7 +39,7 @@ async def get_schedule(schedule_id: int) -> Schedule:
         HTTPException: If schedule is not found
     """
     try:
-        return schedule_database.get_schedule(schedule_id)
+        return schedule_database.get_schedule(schedule_name)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
 
@@ -58,12 +58,12 @@ async def get_active_schedule() -> Schedule:
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
 
-@router.put("/active/{schedule_id}")
-async def set_active_schedule(schedule_id: int) -> Dict[str, Any]:
+@router.put("/active/{schedule_name}")
+async def set_active_schedule(schedule_name: str) -> Dict[str, Any]:
     """Set the active schedule.
 
     Parameters:
-        schedule_id (int): ID of the schedule to set as active
+        schedule_name (str): Name of the schedule to set as active
 
     Returns:
         Dict[str, Any]: Success message and updated active schedule
@@ -73,8 +73,8 @@ async def set_active_schedule(schedule_id: int) -> Dict[str, Any]:
     """
     try:
         # Verify schedule exists before setting as active
-        schedule = schedule_database.get_schedule(schedule_id)
-        schedule_database.active_schedule = schedule_id
+        schedule = schedule_database.get_schedule(schedule_name)
+        schedule_database.active_schedule = schedule_name
         schedule_database.write_schedule_file()
         return {"message": "Success", "active_schedule": schedule}
     except ValueError as exc:
@@ -89,7 +89,6 @@ async def create_schedule(schedule: Schedule) -> Dict[str, Any]:
 
     Parameters:
         schedule (Schedule): Schedule data containing:
-            * sched_id (int): Schedule ID
             * schedule_name (str): Name of the schedule
             * schedule_items (List[ScheduleItem]): List of schedule items containing:
                 * zone (int): Zone number
@@ -117,7 +116,6 @@ async def update_schedule(schedule: Schedule) -> Dict[str, Any]:
 
     Parameters:
         schedule (Schedule): Schedule data containing:
-            * sched_id (int): Schedule ID
             * schedule_name (str): Name of the schedule
             * schedule_items (List[ScheduleItem]): List of schedule items containing:
                 * zone (int): Zone number
@@ -137,6 +135,28 @@ async def update_schedule(schedule: Schedule) -> Dict[str, Any]:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
         logger.error(f"Failed to update schedule: {exc}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.delete("/schedule/{schedule_name}")
+async def delete_schedule(schedule_name: str) -> Dict[str, str]:
+    """Delete a schedule by name.
+
+    Parameters:
+        schedule_name (str): Name of the schedule to delete
+
+    Returns:
+        Dict[str, str]: Success message
+
+    Raises:
+        HTTPException: If schedule is not found or deletion fails
+    """
+    try:
+        schedule_database.delete_schedule(schedule_name)
+        return {"message": "Success"}
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        logger.error(f"Failed to delete schedule: {exc}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/on_off")

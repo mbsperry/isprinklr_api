@@ -22,7 +22,6 @@ good_sprinklers = [
 good_schedules = {
     "schedules": [
         {
-            "sched_id": 1,
             "schedule_name": "Default Schedule",
             "schedule_items": [
                 {"zone": 1, "day": "M:W:F", "duration": 600},
@@ -30,7 +29,6 @@ good_schedules = {
             ]
         },
         {
-            "sched_id": 2,
             "schedule_name": "Summer Schedule",
             "schedule_items": [
                 {"zone": 3, "day": "EO", "duration": 1200},
@@ -38,7 +36,7 @@ good_schedules = {
             ]
         }
     ],
-    "active_schedule": 1
+    "active_schedule": "Default Schedule"
 }
 
 @pytest.fixture
@@ -58,7 +56,7 @@ def test_init():
     db = ScheduleDatabase()
     assert db.sprinklers is None
     assert len(db.schedules) == 0
-    assert db.active_schedule_id is None
+    assert db.active_schedule_name is None
 
 def test_set_sprinklers(db):
     """Test setting sprinkler configurations"""
@@ -75,7 +73,7 @@ def test_load_with_valid_json(mock_json_file, db):
     db.set_sprinklers(good_sprinklers)
     db.load_database()
     assert len(db.schedules) == 2
-    assert db.active_schedule_id == 1
+    assert db.active_schedule_name == "Default Schedule"
     assert db.schedules[0]["schedule_name"] == "Default Schedule"
     assert db.schedules[1]["schedule_name"] == "Summer Schedule"
 
@@ -85,7 +83,7 @@ def test_load_with_missing_file(mocker, db):
     db.set_sprinklers(good_sprinklers)
     db.load_database()
     assert len(db.schedules) == 0
-    assert db.active_schedule_id is None
+    assert db.active_schedule_name is None
 
 def test_load_with_invalid_json(mocker, db):
     """Test loading with invalid JSON data"""
@@ -94,29 +92,29 @@ def test_load_with_invalid_json(mocker, db):
     db.set_sprinklers(good_sprinklers)
     db.load_database()
     assert len(db.schedules) == 0
-    assert db.active_schedule_id is None
+    assert db.active_schedule_name is None
 
 def test_get_schedule(mock_json_file, db):
-    """Test getting a schedule by ID"""
+    """Test getting a schedule by name"""
     db.set_sprinklers(good_sprinklers)
     db.load_database()
-    schedule = db.get_schedule(1)
-    assert schedule["sched_id"] == 1
+    schedule = db.get_schedule("Default Schedule")
     assert schedule["schedule_name"] == "Default Schedule"
+    assert len(schedule["schedule_items"]) == 2
 
-    with pytest.raises(ValueError):
-        db.get_schedule(999)  # Non-existent ID
+    with pytest.raises(ValueError, match="Schedule 'Nonexistent' not found"):
+        db.get_schedule("Nonexistent")
 
 def test_get_active_schedule(mock_json_file, db):
     """Test getting the active schedule"""
     db.set_sprinklers(good_sprinklers)
     db.load_database()
     schedule = db.get_active_schedule()
-    assert schedule["sched_id"] == 1
     assert schedule["schedule_name"] == "Default Schedule"
+    assert len(schedule["schedule_items"]) == 2
 
     # Test when no active schedule
-    db.active_schedule_id = None
+    db.active_schedule_name = None
     with pytest.raises(ValueError, match="No active schedule"):
         db.get_active_schedule()
 
@@ -132,8 +130,7 @@ def test_update_schedule(mock_json_file, db, caplog):
     db.load_database()
     
     new_schedule = {
-        "sched_id": 1,
-        "schedule_name": "Updated Schedule",
+        "schedule_name": "Default Schedule",  # Update existing schedule
         "schedule_items": [
             {"zone": 1, "day": "ALL", "duration": 300},
             {"zone": 2, "day": "EO", "duration": 600},
@@ -141,14 +138,16 @@ def test_update_schedule(mock_json_file, db, caplog):
     }
     
     updated = db.update_schedule(new_schedule)
-    assert updated["schedule_name"] == "Updated Schedule"
+    assert updated["schedule_name"] == "Default Schedule"
     assert len(updated["schedule_items"]) == 2
+    assert updated["schedule_items"][0]["day"] == "ALL"
+    assert updated["schedule_items"][1]["day"] == "EO"
     assert len(db.schedules) == 2  # Total number of schedules should remain the same
     
     # Test updating non-existent schedule
     non_existent_schedule = new_schedule.copy()
-    non_existent_schedule["sched_id"] = 999
-    with pytest.raises(ValueError, match="Schedule with ID 999 not found"):
+    non_existent_schedule["schedule_name"] = "Nonexistent"
+    with pytest.raises(ValueError, match="Schedule 'Nonexistent' not found"):
         db.update_schedule(non_existent_schedule)
 
 def test_add_schedule_without_sprinklers(db):
@@ -163,7 +162,6 @@ def test_add_schedule(mock_json_file, db, caplog):
     db.load_database()
     
     new_schedule = {
-        "sched_id": 3,
         "schedule_name": "New Schedule",
         "schedule_items": [
             {"zone": 1, "day": "ALL", "duration": 300},
@@ -172,12 +170,11 @@ def test_add_schedule(mock_json_file, db, caplog):
     }
     
     added = db.add_schedule(new_schedule)
-    assert added["sched_id"] == 3
     assert added["schedule_name"] == "New Schedule"
     assert len(db.schedules) == 3  # Total number of schedules should increase
     
-    # Test adding schedule with existing ID
-    with pytest.raises(ValueError, match="Schedule with ID 3 already exists"):
+    # Test adding schedule with existing name
+    with pytest.raises(ValueError, match="Schedule 'New Schedule' already exists"):
         db.add_schedule(new_schedule)
 
 def test_write_schedule_file(mock_json_file, db):
@@ -217,14 +214,14 @@ def test_validate_schedule_data(mock_json_file, db):
     
     # Test invalid active_schedule type
     invalid_data = good_schedules.copy()
-    invalid_data["active_schedule"] = "1"  # Should be int
-    with pytest.raises(ValueError, match="Active schedule must be an integer"):
+    invalid_data["active_schedule"] = 1  # Should be string or None
+    with pytest.raises(ValueError, match="Active schedule must be a string or None"):
         db.validate_schedule_data(invalid_data)
     
-    # Test non-existent active_schedule ID
+    # Test non-existent active_schedule name
     invalid_data = good_schedules.copy()
-    invalid_data["active_schedule"] = 999
-    with pytest.raises(ValueError, match="Active schedule ID does not exist"):
+    invalid_data["active_schedule"] = "Nonexistent"
+    with pytest.raises(ValueError, match="Active schedule name does not exist"):
         db.validate_schedule_data(invalid_data)
 
 def test_delete_schedule(mock_json_file, db):
@@ -234,35 +231,33 @@ def test_delete_schedule(mock_json_file, db):
     
     # Verify initial state
     assert len(db.schedules) == 2
-    assert db.active_schedule_id == 1
+    assert db.active_schedule_name == "Default Schedule"
     
     # Test deleting non-active schedule
-    assert db.delete_schedule(2) == True
+    assert db.delete_schedule("Summer Schedule") == True
     assert len(db.schedules) == 1
-    assert db.active_schedule_id == 1  # Active schedule should remain unchanged
+    assert db.active_schedule_name == "Default Schedule"  # Active schedule should remain unchanged
     
     # Verify file was updated
     write_call = mock_json_file().write.call_args[0][0]
     written_data = json.loads(write_call)
     assert len(written_data["schedules"]) == 1
-    assert written_data["active_schedule"] == 1
+    assert written_data["active_schedule"] == "Default Schedule"
 
     # Test deleting non-existent schedule
-    with pytest.raises(ValueError, match="Schedule with ID 999 not found"):
-        db.delete_schedule(999)
+    with pytest.raises(ValueError, match="Schedule 'Nonexistent' not found"):
+        db.delete_schedule("Nonexistent")
     
 def test_delete_active_schedule(mock_json_file, db):
-    """Test deleting a schedule"""
+    """Test deleting the active schedule"""
     db.set_sprinklers(good_sprinklers)
     db.load_database()
-    db.active_schedule_id = 1
 
     # Verify initial state
     assert len(db.schedules) == 2
-    assert db.active_schedule_id == 1
+    assert db.active_schedule_name == "Default Schedule"
 
     # Test deleting active schedule
-    assert db.delete_schedule(1) == True
+    assert db.delete_schedule("Default Schedule") == True
     assert len(db.schedules) == 1
-    assert db.active_schedule_id is None
-    
+    assert db.active_schedule_name is None

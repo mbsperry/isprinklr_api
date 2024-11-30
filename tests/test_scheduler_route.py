@@ -9,7 +9,6 @@ from isprinklr.main import app
 client = TestClient(app)
 
 test_schedule = {
-    "sched_id": 1,
     "schedule_name": "Test Schedule",
     "schedule_items": [
         {"zone": 1, "day": "EO", "duration": 60},
@@ -28,16 +27,17 @@ def test_get_schedules(mocker):
     assert len(schedules) == 1
     assert schedules[0] == test_schedule
 
-def test_get_schedule_by_id(mocker):
+def test_get_schedule_by_name(mocker):
     mocker.patch.object(isprinklr.system_status.schedule_database, 'get_schedule', return_value=test_schedule)
-    response = client.get("/api/scheduler/schedule/1")
+    response = client.get("/api/scheduler/schedule/Test Schedule")
     assert response.status_code == 200
     schedule = response.json()
     assert schedule == test_schedule
 
-def test_get_schedule_by_id_not_found(mocker):
-    mocker.patch.object(isprinklr.system_status.schedule_database, 'get_schedule', side_effect=ValueError("Schedule not found"))
-    response = client.get("/api/scheduler/schedule/999")
+def test_get_schedule_by_name_not_found(mocker):
+    mocker.patch.object(isprinklr.system_status.schedule_database, 'get_schedule', 
+                       side_effect=ValueError("Schedule 'Nonexistent' not found"))
+    response = client.get("/api/scheduler/schedule/Nonexistent")
     assert response.status_code == 404
     assert "detail" in response.json()
 
@@ -49,41 +49,46 @@ def test_get_active_schedule(mocker):
     assert schedule == test_schedule
 
 def test_get_active_schedule_none(mocker):
-    mocker.patch.object(isprinklr.system_status.schedule_database, 'get_active_schedule', side_effect=ValueError("No active schedule"))
+    mocker.patch.object(isprinklr.system_status.schedule_database, 'get_active_schedule', 
+                       side_effect=ValueError("No active schedule"))
     response = client.get("/api/scheduler/active")
     assert response.status_code == 404
     assert "detail" in response.json()
 
 def test_set_active_schedule(mocker):
-    get_schedule_mock = mocker.patch.object(isprinklr.system_status.schedule_database, 'get_schedule', return_value=test_schedule)
+    get_schedule_mock = mocker.patch.object(isprinklr.system_status.schedule_database, 'get_schedule', 
+                                          return_value=test_schedule)
     write_mock = mocker.patch.object(isprinklr.system_status.schedule_database, 'write_schedule_file')
     
-    response = client.put("/api/scheduler/active/1")
+    response = client.put("/api/scheduler/active/Test Schedule")
     assert response.status_code == 200
     result = response.json()
     assert result["message"] == "Success"
     assert result["active_schedule"] == test_schedule
-    assert isprinklr.system_status.schedule_database.active_schedule_id == 1
+    assert isprinklr.system_status.schedule_database.active_schedule_name == "Test Schedule"
     
-    get_schedule_mock.assert_called_once_with(1)
+    get_schedule_mock.assert_called_once_with("Test Schedule")
     write_mock.assert_called_once()
 
 def test_set_active_schedule_not_found(mocker):
-    mocker.patch.object(isprinklr.system_status.schedule_database, 'get_schedule', side_effect=ValueError("Schedule not found"))
-    response = client.put("/api/scheduler/active/999")
+    mocker.patch.object(isprinklr.system_status.schedule_database, 'get_schedule', 
+                       side_effect=ValueError("Schedule 'Nonexistent' not found"))
+    response = client.put("/api/scheduler/active/Nonexistent")
     assert response.status_code == 404
     assert "detail" in response.json()
 
 def test_create_schedule(mocker):
-    mocker.patch.object(isprinklr.system_status.schedule_database, 'add_schedule', return_value=test_schedule)
+    add_mock = mocker.patch.object(isprinklr.system_status.schedule_database, 'add_schedule', return_value=test_schedule)
     response = client.post("/api/scheduler/schedule", json=test_schedule)
     assert response.status_code == 200
     result = response.json()
     assert result["message"] == "Success"
     assert result["schedule"] == test_schedule
+    add_mock.assert_called_once_with(test_schedule)
 
 def test_create_schedule_validation_error(mocker):
-    mocker.patch.object(isprinklr.system_status.schedule_database, 'add_schedule', side_effect=ValueError("Invalid schedule"))
+    mocker.patch.object(isprinklr.system_status.schedule_database, 'add_schedule', 
+                       side_effect=ValueError("Schedule validation failed"))
     response = client.post("/api/scheduler/schedule", json=test_schedule)
     assert response.status_code == 400
     assert "detail" in response.json()
@@ -97,9 +102,25 @@ def test_update_schedule(mocker):
     assert result["schedule"] == test_schedule
 
 def test_update_schedule_validation_error(mocker):
-    mocker.patch.object(isprinklr.system_status.schedule_database, 'update_schedule', side_effect=ValueError("Invalid schedule"))
+    mocker.patch.object(isprinklr.system_status.schedule_database, 'update_schedule', 
+                       side_effect=ValueError("Schedule validation failed"))
     response = client.put("/api/scheduler/schedule", json=test_schedule)
     assert response.status_code == 400
+    assert "detail" in response.json()
+
+def test_delete_schedule(mocker):
+    delete_mock = mocker.patch.object(isprinklr.system_status.schedule_database, 'delete_schedule', return_value=True)
+    response = client.delete("/api/scheduler/schedule/Test Schedule")
+    assert response.status_code == 200
+    result = response.json()
+    assert result["message"] == "Success"
+    delete_mock.assert_called_once_with("Test Schedule")
+
+def test_delete_schedule_not_found(mocker):
+    mocker.patch.object(isprinklr.system_status.schedule_database, 'delete_schedule', 
+                       side_effect=ValueError("Schedule 'Nonexistent' not found"))
+    response = client.delete("/api/scheduler/schedule/Nonexistent")
+    assert response.status_code == 404
     assert "detail" in response.json()
 
 def test_get_schedule_on_off(mocker):

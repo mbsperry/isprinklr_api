@@ -60,14 +60,12 @@ def validate_schedule_list(schedules: List[dict], sprinklers: List[SprinklerConf
 
     Args:
         schedules (List[dict]): List of schedules, each containing:
-            * sched_id (int): Unique schedule ID
             * schedule_name (str): Name of the schedule
             * schedule_items (List[ScheduleItem]): List of schedule items
         sprinklers (List[SprinklerConfig]): List of available sprinkler configurations
 
     Raises:
         ValueError: If any validation constraint is violated:
-            - Duplicate schedule IDs
             - Duplicate schedule names
             - Missing or empty schedule names
             - Invalid schedule items
@@ -75,11 +73,6 @@ def validate_schedule_list(schedules: List[dict], sprinklers: List[SprinklerConf
     Returns:
         bool: True if all schedules pass validation
     """
-    # Check for duplicate schedule IDs
-    schedule_ids = [s["sched_id"] for s in schedules]
-    if len(schedule_ids) != len(set(schedule_ids)):
-        raise ValueError("Validation Error: Duplicate schedule IDs")
-
     # Check for duplicate schedule names
     schedule_names = [s["schedule_name"] for s in schedules]
     if len(schedule_names) != len(set(schedule_names)):
