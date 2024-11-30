@@ -20,6 +20,10 @@ class ScheduleDatabase:
     @property
     def active_schedule(self) -> Optional[int]:
         return self.active_schedule_id
+    
+    @active_schedule.setter
+    def active_schedule(self, value: Optional[int]):
+        self.active_schedule_id = value
 
     def set_sprinklers(self, sprinklers: List[SprinklerConfig]):
         """
@@ -224,6 +228,28 @@ class ScheduleDatabase:
         for schedule in self.schedules:
             if schedule["sched_id"] == schedule_id:
                 return schedule
+        raise ValueError(f"Schedule with ID {schedule_id} not found")
+    
+    def delete_schedule(self, schedule_id: int) -> bool:
+        """
+        Delete a schedule by ID.
+        
+        Args:
+            schedule_id: ID of the schedule to delete
+            
+        Returns:
+            bool: True if deletion was successful
+            
+        Raises:
+            ValueError: If schedule not found
+        """
+        for i, schedule in enumerate(self.schedules):
+            if schedule["sched_id"] == schedule_id:
+                del self.schedules[i]
+                if self.active_schedule_id == schedule_id:
+                    self.active_schedule_id = None
+                self.write_schedule_file()
+                return True
         raise ValueError(f"Schedule with ID {schedule_id} not found")
 
     def get_active_schedule(self) -> Optional[Schedule]:

@@ -1,10 +1,9 @@
-# Description: reads from a .csv file and starts sprinklers based on the schedule
-# The program is run every morning at 4am by a cron job
-# Needs to open the csv file and determine which sprinklers need to be run that day and for how long.
-# Then it needs to start the sprinklers using the API defined in api.py and wait for them to finish.
+# Description: Router for managing sprinkler schedules
+# Provides endpoints for creating, reading, updating, and deleting schedules
+# as well as managing the active schedule and schedule automation
 
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException
 
 from ..schemas import Schedule, ScheduleItem
@@ -12,41 +11,133 @@ from isprinklr.system_status import system_status, schedule_database
 
 logger = logging.getLogger(__name__)
 
-API_URL = "http://localhost:8080/api/"
-
-day_abbr = {
-        0: "Su",
-        1: "M",
-        2: "Tu",
-        3: "W",
-        4: "Th",
-        5: "F",
-        6: "Sa"
-        }
-
 router = APIRouter(
     prefix="/api/scheduler",
     tags=["scheduler"]
 )
 
-@router.get("/schedule")
-async def get_schedule() -> List[ScheduleItem]:
-    """Get the current active schedule configuration.
+@router.get("/schedules")
+async def get_schedules() -> List[Schedule]:
+    """Get all available schedules.
 
     Returns:
-        List[ScheduleItem]: List of schedule items from the active schedule, containing:
-            * zone (int): Zone number
-            * day (str): Day abbreviation ("Su", "M", "Tu", "W", "Th", "F", "Sa")
-            * duration (int): Duration in seconds
-            
+        List[Schedule]: List of all schedules in the database
+    """
+    return schedule_database.schedules
+
+@router.get("/schedule/{schedule_id}")
+async def get_schedule(schedule_id: int) -> Schedule:
+    """Get a specific schedule by ID.
+
+    Parameters:
+        schedule_id (int): ID of the schedule to retrieve
+
+    Returns:
+        Schedule: The requested schedule
+
+    Raises:
+        HTTPException: If schedule is not found
+    """
+    try:
+        return schedule_database.get_schedule(schedule_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+@router.get("/active")
+async def get_active_schedule() -> Schedule:
+    """Get the currently active schedule.
+
+    Returns:
+        Schedule: The active schedule
+
     Raises:
         HTTPException: If no active schedule is set
     """
     try:
-        active_schedule = schedule_database.get_active_schedule()
-        return active_schedule["schedule_items"]
-    except ValueError:
-        return []
+        return schedule_database.get_active_schedule()
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+@router.put("/active/{schedule_id}")
+async def set_active_schedule(schedule_id: int) -> Dict[str, Any]:
+    """Set the active schedule.
+
+    Parameters:
+        schedule_id (int): ID of the schedule to set as active
+
+    Returns:
+        Dict[str, Any]: Success message and updated active schedule
+
+    Raises:
+        HTTPException: If schedule is not found
+    """
+    try:
+        # Verify schedule exists before setting as active
+        schedule = schedule_database.get_schedule(schedule_id)
+        schedule_database.active_schedule = schedule_id
+        schedule_database.write_schedule_file()
+        return {"message": "Success", "active_schedule": schedule}
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        logger.error(f"Failed to set active schedule: {exc}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.post("/schedule")
+async def create_schedule(schedule: Schedule) -> Dict[str, Any]:
+    """Create a new schedule.
+
+    Parameters:
+        schedule (Schedule): Schedule data containing:
+            * sched_id (int): Schedule ID
+            * schedule_name (str): Name of the schedule
+            * schedule_items (List[ScheduleItem]): List of schedule items containing:
+                * zone (int): Zone number
+                * day (str): Day abbreviation ("Su", "M", "Tu", "W", "Th", "F", "Sa")
+                * duration (int): Duration in seconds
+
+    Returns:
+        Dict[str, Any]: Success message and created schedule
+
+    Raises:
+        HTTPException: If creation fails due to invalid data or server error
+    """
+    try:
+        created_schedule = schedule_database.add_schedule(schedule)
+        return {"message": "Success", "schedule": created_schedule}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        logger.error(f"Failed to create schedule: {exc}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.put("/schedule")
+async def update_schedule(schedule: Schedule) -> Dict[str, Any]:
+    """Update an existing schedule.
+
+    Parameters:
+        schedule (Schedule): Schedule data containing:
+            * sched_id (int): Schedule ID
+            * schedule_name (str): Name of the schedule
+            * schedule_items (List[ScheduleItem]): List of schedule items containing:
+                * zone (int): Zone number
+                * day (str): Day abbreviation ("Su", "M", "Tu", "W", "Th", "F", "Sa")
+                * duration (int): Duration in seconds
+
+    Returns:
+        Dict[str, Any]: Success message and updated schedule
+
+    Raises:
+        HTTPException: If update fails due to invalid data or server error
+    """
+    try:
+        updated_schedule = schedule_database.update_schedule(schedule)
+        return {"message": "Success", "schedule": updated_schedule}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        logger.error(f"Failed to update schedule: {exc}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/on_off")
 async def get_schedule_on_off() -> Dict[str, bool]:
@@ -77,35 +168,4 @@ async def update_schedule_on_off(schedule_on_off: bool) -> Dict[str, bool]:
         return {"schedule_on_off": system_status.schedule_on_off}
     except Exception as exc:
         logger.error(f"Failed to update schedule on/off: {exc}")
-        raise HTTPException(status_code=500, detail="Internal server error")
-
-@router.put("/schedule")
-async def update_schedule(schedule: Schedule) -> Dict[str, Any]:
-    """Update a schedule in the database.
-
-    Parameters:
-        schedule (Schedule): Schedule data containing:
-            * sched_id (int): Schedule ID
-            * schedule_name (str): Name of the schedule
-            * schedule_items (List[ScheduleItem]): List of schedule items containing:
-                * zone (int): Zone number
-                * day (str): Day abbreviation ("Su", "M", "Tu", "W", "Th", "F", "Sa")
-                * duration (int): Duration in seconds
-
-    Returns:
-        Dict[str, Any]: Dictionary containing:
-            * message (str): Success message
-            * schedule (Schedule): Updated schedule configuration
-
-    Raises:
-        HTTPException: If the update fails due to invalid data or server error
-    """
-    try:
-        updated_schedule = schedule_database.update_schedule(schedule)
-        return {"message": "Success", "schedule": updated_schedule}
-    except ValueError as exc:
-        logger.error(f"Failed to update schedule: {exc}")
-        raise HTTPException(status_code=400, detail=str(exc))
-    except Exception as exc:
-        logger.error(f"Failed to update schedule: {exc}")
         raise HTTPException(status_code=500, detail="Internal server error")

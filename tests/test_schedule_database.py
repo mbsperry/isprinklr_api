@@ -226,3 +226,43 @@ def test_validate_schedule_data(mock_json_file, db):
     invalid_data["active_schedule"] = 999
     with pytest.raises(ValueError, match="Active schedule ID does not exist"):
         db.validate_schedule_data(invalid_data)
+
+def test_delete_schedule(mock_json_file, db):
+    """Test deleting a schedule"""
+    db.set_sprinklers(good_sprinklers)
+    db.load_database()
+    
+    # Verify initial state
+    assert len(db.schedules) == 2
+    assert db.active_schedule_id == 1
+    
+    # Test deleting non-active schedule
+    assert db.delete_schedule(2) == True
+    assert len(db.schedules) == 1
+    assert db.active_schedule_id == 1  # Active schedule should remain unchanged
+    
+    # Verify file was updated
+    write_call = mock_json_file().write.call_args[0][0]
+    written_data = json.loads(write_call)
+    assert len(written_data["schedules"]) == 1
+    assert written_data["active_schedule"] == 1
+
+    # Test deleting non-existent schedule
+    with pytest.raises(ValueError, match="Schedule with ID 999 not found"):
+        db.delete_schedule(999)
+    
+def test_delete_active_schedule(mock_json_file, db):
+    """Test deleting a schedule"""
+    db.set_sprinklers(good_sprinklers)
+    db.load_database()
+    db.active_schedule_id = 1
+
+    # Verify initial state
+    assert len(db.schedules) == 2
+    assert db.active_schedule_id == 1
+
+    # Test deleting active schedule
+    assert db.delete_schedule(1) == True
+    assert len(db.schedules) == 1
+    assert db.active_schedule_id is None
+    
