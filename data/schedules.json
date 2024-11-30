@@ -1,7 +1,6 @@
 {
   "schedules": [
     {
-      "sched_id": 1,
       "schedule_name": "Default Schedule",
       "schedule_items": [
         {
@@ -47,5 +46,5 @@
       ]
     }
   ],
-  "active_schedule": 1
+  "active_schedule": "Default Schedule"
 }
