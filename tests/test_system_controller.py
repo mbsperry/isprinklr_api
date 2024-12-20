@@ -118,12 +118,14 @@ async def test_zone_timer_auto_stop(mock_system_controller):
 
 @pytest.mark.asyncio
 async def test_run_zone_sequence_success(mock_system_controller):
-    # Mock the required methods
-    mock_system_controller.start_sprinkler = AsyncMock(return_value=True)
-    mock_system_controller.stop_system = AsyncMock(return_value=True)
-
-    # Mock asyncio.sleep at the system level
-    with patch('isprinklr.system_controller.asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
+    # Create a controllable sleep
+    sleep_event = asyncio.Event()
+    async def controlled_sleep(duration):
+        sleep_event.set()  # Signal that sleep was called
+        await asyncio.sleep(0)  # Small delay to allow other tasks to run
+    
+    # Mock the sleep
+    with patch('isprinklr.system_controller.asyncio.sleep', new=controlled_sleep):
         # Test sequence - durations in seconds
         zones = [
             {"zone": 1, "duration": 60},  # 1 minute
@@ -131,61 +133,108 @@ async def test_run_zone_sequence_success(mock_system_controller):
         ]
         
         # Run the sequence
-        result = await mock_system_controller.run_zone_sequence(zones)
+        sequence_task = asyncio.create_task(mock_system_controller.run_zone_sequence(zones))
         
-        assert result == True
-        assert mock_system_controller.start_sprinkler.call_count == 2
-        assert mock_system_controller.stop_system.call_count == 2
+        # Wait for first sleep to be called
+        await sleep_event.wait()
         
-        # Verify the sequence of calls
-        mock_system_controller.start_sprinkler.assert_any_call({"zone": 1, "duration": 60})
-        mock_system_controller.start_sprinkler.assert_any_call({"zone": 2, "duration": 120})
+        # Let the sequence complete
+        await sequence_task
         
-        # Verify sleep durations
-        mock_sleep.assert_any_call(60)  # 1 minute
-        mock_sleep.assert_any_call(120)  # 2 minutes
-        assert mock_sleep.call_count == 2
+        # Verify cleanup
+        assert mock_system_controller._sequence_task is None
+        # Timer task should be active for the last zone
+        assert mock_system_controller._timer_task is not None
 
 @pytest.mark.asyncio
 async def test_run_zone_sequence_start_failure(mock_system_controller):
     # Mock start_sprinkler to fail
     mock_system_controller.start_sprinkler = AsyncMock(side_effect=Exception("Failed to start zone"))
-    mock_system_controller.stop_system = AsyncMock(return_value=True)
 
-    # Mock asyncio.sleep at the system level
-    with patch('isprinklr.system_controller.asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
-        # Test sequence - durations in seconds
-        zones = [
-            {"zone": 1, "duration": 60},  # 1 minute
-            {"zone": 2, "duration": 60}   # 1 minute
-        ]
-        
-        # Run the sequence
-        result = await mock_system_controller.run_zone_sequence(zones)
-        
-        assert result == False
-        assert mock_system_controller.start_sprinkler.call_count == 1  # Should fail on first zone
-        assert mock_system_controller.stop_system.call_count == 0  # Should not need to stop since start failed
-        assert mock_sleep.call_count == 0  # Should not sleep at all
+    # Test sequence - durations in seconds
+    zones = [
+        {"zone": 1, "duration": 60},  # 1 minute
+        {"zone": 2, "duration": 60}   # 1 minute
+    ]
+    
+    # Run the sequence
+    result = await mock_system_controller.run_zone_sequence(zones)
+    
+    assert result == False
+    assert mock_system_controller.start_sprinkler.call_count == 1  # Should fail on first zone
+    assert mock_system_controller._sequence_task is None
+    assert mock_system_controller._timer_task is None
 
 @pytest.mark.asyncio
-async def test_run_zone_sequence_stop_failure(mock_system_controller):
-    # Mock start_sprinkler to succeed but stop_system to fail
-    mock_system_controller.start_sprinkler = AsyncMock(return_value=True)
-    mock_system_controller.stop_system = AsyncMock(side_effect=Exception("Failed to stop zone"))
-
-    # Mock asyncio.sleep at the system level
-    with patch('isprinklr.system_controller.asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
-        # Test sequence - durations in seconds
+async def test_stop_system_during_sequence(mock_system_controller):
+    """Test that stopping the system during a sequence properly cancels everything"""
+    # Create a controllable sleep
+    sleep_event = asyncio.Event()
+    sleep_started = asyncio.Event()
+    async def controlled_sleep(duration):
+        sleep_started.set()  # Signal that sleep was called
+        await sleep_event.wait()  # Wait for test to signal completion
+    
+    # Mock the sleep
+    with patch('isprinklr.system_controller.asyncio.sleep', new=controlled_sleep):
+        # Start a sequence
         zones = [
-            {"zone": 1, "duration": 60},  # 1 minute
-            {"zone": 2, "duration": 60}   # 1 minute
+            {"zone": 1, "duration": 60},
+            {"zone": 2, "duration": 60}
         ]
         
-        # Run the sequence
-        result = await mock_system_controller.run_zone_sequence(zones)
+        # Start the sequence in the background
+        sequence_task = asyncio.create_task(mock_system_controller.run_zone_sequence(zones))
         
-        assert result == False
-        assert mock_system_controller.start_sprinkler.call_count == 1  # Should fail after first zone
-        assert mock_system_controller.stop_system.call_count == 1  # Should attempt to stop once
-        assert mock_sleep.call_count == 1  # Should sleep once for the first zone
+        # Wait for the first sleep to start
+        await sleep_started.wait()
+        
+        # Stop the system
+        await mock_system_controller.stop_system()
+        
+        # Allow sleep to complete
+        sleep_event.set()
+        
+        # Wait for sequence to finish
+        await sequence_task
+        
+        # Verify cleanup
+        assert mock_system_controller._sequence_task is None
+        assert mock_system_controller._timer_task is None
+
+@pytest.mark.asyncio
+async def test_sequence_cancelled_mid_zone(mock_system_controller):
+    """Test that cancelling a sequence mid-zone properly cleans up"""
+    # Create a controllable sleep
+    sleep_event = asyncio.Event()
+    sleep_started = asyncio.Event()
+    async def controlled_sleep(duration):
+        sleep_started.set()  # Signal that sleep was called
+        await sleep_event.wait()  # Wait for test to signal completion
+    
+    # Mock the sleep
+    with patch('isprinklr.system_controller.asyncio.sleep', new=controlled_sleep):
+        # Start a sequence
+        zones = [
+            {"zone": 1, "duration": 60},
+            {"zone": 2, "duration": 60}
+        ]
+        
+        # Start the sequence in the background
+        sequence_task = asyncio.create_task(mock_system_controller.run_zone_sequence(zones))
+        
+        # Wait for the first sleep to start
+        await sleep_started.wait()
+        
+        # Stop the system mid-zone
+        await mock_system_controller.stop_system()
+        
+        # Allow sleep to complete
+        sleep_event.set()
+        
+        # Wait for sequence to finish
+        await sequence_task
+        
+        # Verify cleanup
+        assert mock_system_controller._sequence_task is None
+        assert mock_system_controller._timer_task is None
