@@ -133,18 +133,18 @@ def test_schedule_on_off(mock_system_status):
     mock_system_status.schedule_on_off = True
     assert mock_system_status.schedule_on_off == True
 
-def test_last_run(mock_system_status):
-    """Test last_run tracking"""
-    assert mock_system_status.last_run is None
-    
+def test_last_zone_run(mock_system_status):
+    """Test last_zone_run tracking"""
+    assert mock_system_status.last_zone_run is None
+
     # Set last run zone
-    mock_system_status.last_run = 3
-    
+    mock_system_status.last_zone_run = 3
+
     # Verify last run info
-    last_run = mock_system_status.last_run
-    assert last_run["zone"] == 3
-    assert "timestamp" in last_run
-    assert isinstance(last_run["timestamp"], float)
+    last_zone_run = mock_system_status.last_zone_run
+    assert last_zone_run["zone"] == 3
+    assert "timestamp" in last_zone_run
+    assert isinstance(last_zone_run["timestamp"], float)
 
 def test_last_schedule_run(mock_system_status):
     """Test last_schedule_run tracking"""

@@ -74,7 +74,7 @@ class SystemController:
                 if (hunterserial.start_zone(sprinkler['zone'], duration_minutes)):
                     logger.debug(f"Started zone {sprinkler['zone']} for {sprinkler['duration']} seconds: success")
                     system_status.update_status("active", None, sprinkler['zone'], sprinkler['duration'])
-                    system_status.last_run = sprinkler['zone']
+                    system_status.last_zone_run = sprinkler['zone']
                     
                     # Create and start new timer task
                     self._timer_task = asyncio.create_task(self._zone_timer(sprinkler['duration']))

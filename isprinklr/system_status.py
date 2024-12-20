@@ -41,7 +41,7 @@ class SystemStatus:
         self._end_time: Optional[float] = None
         self._sprinklers: List[SprinklerConfig] = sprinkler_service.read_sprinklers(data_path)
         self._schedule_on_off: bool = False  # Initialize to False
-        self._last_run: Optional[Dict[str, Any]] = None
+        self._last_zone_run: Optional[Dict[str, Any]] = None
         self._last_schedule_run: Optional[Dict[str, Any]] = None
         
         # Initialize schedule_database with sprinklers
@@ -49,7 +49,7 @@ class SystemStatus:
         schedule_database.load_database()
 
     @property
-    def last_run(self) -> Optional[Dict[str, Any]]:
+    def last_zone_run(self) -> Optional[Dict[str, Any]]:
         """Get information about the last zone that was run.
         
         Returns:
@@ -58,17 +58,17 @@ class SystemStatus:
                 - timestamp (float): Unix timestamp when the zone was run
                 Or None if no zone has been run
         """
-        return self._last_run
+        return self._last_zone_run
     
-    @last_run.setter 
-    def last_run(self, zone: int):
+    @last_zone_run.setter 
+    def last_zone_run(self, zone: int):
         """Set information about the last zone run.
         
         Args:
             zone (int): The zone number that was run
         """
         import time
-        self._last_run = {
+        self._last_zone_run = {
             "zone": zone,
             "timestamp": time.time()
         }
