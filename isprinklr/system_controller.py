@@ -1,5 +1,5 @@
 import logging, asyncio
-from typing import Optional
+from typing import Optional, List, Dict
 
 import isprinklr.sprinklr_serial as hunterserial
 from .schemas import SprinklerCommand
@@ -125,21 +125,22 @@ class SystemController:
             logger.error("Failed to stop zone, system is not active")
             raise Exception("Failed to stop zone, system is not active")
 
-    async def run_zone_sequence(self, zone_sequence: list[list]) -> bool:
+    async def run_zone_sequence(self, zones: List[Dict[str, int]]) -> bool:
         """Run a sequence of zones for specified durations.
         
         Args:
-            zone_sequence: List of [zone, duration] pairs to run sequentially
+            zones: List of dictionaries containing:
+                * zone (int): Zone number
+                * duration (int): Duration in seconds
             
         Returns:
             True if all zones completed successfully
         """
         try:
-            for zone, duration in zone_sequence:
-                logger.debug(f"Starting zone {zone} for {duration} seconds")
-                sprinkler = {"zone": zone, "duration": duration}
-                await self.start_sprinkler(sprinkler)
-                await asyncio.sleep(duration)
+            for zone in zones:
+                logger.debug(f"Starting zone {zone['zone']} for {zone['duration']} seconds")
+                await self.start_sprinkler(zone)
+                await asyncio.sleep(zone['duration'])
                 try:
                     await self.stop_system()
                 except Exception as e:

@@ -1,8 +1,13 @@
 from fastapi.testclient import TestClient
+from unittest.mock import AsyncMock
+import pytest
+import asyncio
 
 from context import isprinklr
 from isprinklr.system_status import SystemStatus
 import isprinklr.system_status
+from isprinklr.system_controller import system_controller
+from isprinklr.routers import scheduler
 
 from isprinklr.main import app
 
@@ -17,6 +22,18 @@ test_schedule = {
         {"zone": 4, "day": "Tu:Th", "duration": 240}
     ]
 }
+
+@pytest.fixture(autouse=True)
+async def cleanup_tasks():
+    yield
+    # Clean up any pending tasks after each test
+    tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+    for task in tasks:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
 def test_get_schedules(mocker):
     mocker.patch.object(isprinklr.system_status.schedule_database, 'schedules', [test_schedule])
@@ -137,3 +154,107 @@ def test_update_schedule_on_off(mocker):
     response = client.put("/api/scheduler/on_off", params={"schedule_on_off": False})
     assert response.status_code == 200
     assert response.json() == {"schedule_on_off": False}
+
+def test_run_schedule_success(mocker):
+    # Mock dependencies
+    scheduled_zones = [
+        {"zone": 1, "duration": 60},
+        {"zone": 2, "duration": 120}
+    ]
+    mocker.patch.object(isprinklr.system_status.schedule_database, 'get_schedule', return_value=test_schedule)
+    mocker.patch.object(scheduler, 'get_scheduled_zones', return_value=scheduled_zones)
+    mocker.patch.object(SystemStatus, 'active_zone', new_callable=mocker.PropertyMock, return_value=None)
+    # Mock the run_zone_sequence method
+    run_sequence_mock = AsyncMock()
+    mocker.patch.object(system_controller, 'run_zone_sequence', run_sequence_mock)
+    
+    response = client.post("/api/scheduler/schedule/Test Schedule/run")
+    assert response.status_code == 200
+    result = response.json()
+    assert result["message"] == "Started running schedule"
+    assert sorted(result["zones"], key=lambda x: x["zone"]) == sorted(scheduled_zones, key=lambda x: x["zone"])
+
+def test_run_schedule_no_zones_today(mocker):
+    # Mock dependencies
+    mocker.patch.object(isprinklr.system_status.schedule_database, 'get_schedule', return_value=test_schedule)
+    mocker.patch.object(scheduler, 'get_scheduled_zones', return_value=[])
+    mocker.patch.object(SystemStatus, 'active_zone', new_callable=mocker.PropertyMock, return_value=None)
+    
+    response = client.post("/api/scheduler/schedule/Test Schedule/run")
+    assert response.status_code == 200
+    result = response.json()
+    assert result["message"] == "No zones scheduled for today"
+    assert result["zones"] == []
+
+def test_run_schedule_system_busy(mocker):
+    # Mock dependencies
+    mocker.patch.object(isprinklr.system_status.schedule_database, 'get_schedule', return_value=test_schedule)
+    mocker.patch.object(SystemStatus, 'active_zone', new_callable=mocker.PropertyMock, return_value=1)
+    
+    response = client.post("/api/scheduler/schedule/Test Schedule/run")
+    assert response.status_code == 409
+    assert "detail" in response.json()
+    assert "System is already running zone 1" in response.json()["detail"]
+
+def test_run_schedule_not_found(mocker):
+    # Mock dependencies
+    mocker.patch.object(isprinklr.system_status.schedule_database, 'get_schedule', 
+                       side_effect=ValueError("Schedule 'Nonexistent' not found"))
+    mocker.patch.object(SystemStatus, 'active_zone', new_callable=mocker.PropertyMock, return_value=None)
+    
+    response = client.post("/api/scheduler/schedule/Nonexistent/run")
+    assert response.status_code == 404
+    assert "detail" in response.json()
+    assert "not found" in response.json()["detail"]
+
+def test_run_active_schedule_success(mocker):
+    # Mock dependencies
+    scheduled_zones = [
+        {"zone": 1, "duration": 60},
+        {"zone": 2, "duration": 120}
+    ]
+    mocker.patch.object(isprinklr.system_status.schedule_database, 'get_active_schedule', return_value=test_schedule)
+    mocker.patch.object(scheduler, 'get_scheduled_zones', return_value=scheduled_zones)
+    mocker.patch.object(SystemStatus, 'active_zone', new_callable=mocker.PropertyMock, return_value=None)
+    # Mock the run_zone_sequence method
+    run_sequence_mock = AsyncMock()
+    mocker.patch.object(system_controller, 'run_zone_sequence', run_sequence_mock)
+    
+    response = client.post("/api/scheduler/active/run")
+    assert response.status_code == 200
+    result = response.json()
+    assert result["message"] == "Started running active schedule"
+    assert sorted(result["zones"], key=lambda x: x["zone"]) == sorted(scheduled_zones, key=lambda x: x["zone"])
+
+def test_run_active_schedule_no_zones_today(mocker):
+    # Mock dependencies
+    mocker.patch.object(isprinklr.system_status.schedule_database, 'get_active_schedule', return_value=test_schedule)
+    mocker.patch.object(scheduler, 'get_scheduled_zones', return_value=[])
+    mocker.patch.object(SystemStatus, 'active_zone', new_callable=mocker.PropertyMock, return_value=None)
+    
+    response = client.post("/api/scheduler/active/run")
+    assert response.status_code == 200
+    result = response.json()
+    assert result["message"] == "No zones scheduled for today"
+    assert result["zones"] == []
+
+def test_run_active_schedule_system_busy(mocker):
+    # Mock dependencies
+    mocker.patch.object(isprinklr.system_status.schedule_database, 'get_active_schedule', return_value=test_schedule)
+    mocker.patch.object(SystemStatus, 'active_zone', new_callable=mocker.PropertyMock, return_value=1)
+    
+    response = client.post("/api/scheduler/active/run")
+    assert response.status_code == 409
+    assert "detail" in response.json()
+    assert "System is already running zone 1" in response.json()["detail"]
+
+def test_run_active_schedule_not_set(mocker):
+    # Mock dependencies
+    mocker.patch.object(isprinklr.system_status.schedule_database, 'get_active_schedule', 
+                       side_effect=ValueError("No active schedule"))
+    mocker.patch.object(SystemStatus, 'active_zone', new_callable=mocker.PropertyMock, return_value=None)
+    
+    response = client.post("/api/scheduler/active/run")
+    assert response.status_code == 404
+    assert "detail" in response.json()
+    assert "No active schedule" in response.json()["detail"]

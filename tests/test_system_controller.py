@@ -125,10 +125,13 @@ async def test_run_zone_sequence_success(mock_system_controller):
     # Mock asyncio.sleep at the system level
     with patch('isprinklr.system_controller.asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
         # Test sequence - durations in seconds
-        zone_sequence = [[1, 60], [2, 120]]  # Two zones, 1 and 2 minutes in seconds
+        zones = [
+            {"zone": 1, "duration": 60},  # 1 minute
+            {"zone": 2, "duration": 120}   # 2 minutes
+        ]
         
         # Run the sequence
-        result = await mock_system_controller.run_zone_sequence(zone_sequence)
+        result = await mock_system_controller.run_zone_sequence(zones)
         
         assert result == True
         assert mock_system_controller.start_sprinkler.call_count == 2
@@ -138,9 +141,9 @@ async def test_run_zone_sequence_success(mock_system_controller):
         mock_system_controller.start_sprinkler.assert_any_call({"zone": 1, "duration": 60})
         mock_system_controller.start_sprinkler.assert_any_call({"zone": 2, "duration": 120})
         
-        # Verify sleep durations (already in seconds)
-        mock_sleep.assert_any_call(60)  # 1 minute in seconds
-        mock_sleep.assert_any_call(120)  # 2 minutes in seconds
+        # Verify sleep durations
+        mock_sleep.assert_any_call(60)  # 1 minute
+        mock_sleep.assert_any_call(120)  # 2 minutes
         assert mock_sleep.call_count == 2
 
 @pytest.mark.asyncio
@@ -152,10 +155,13 @@ async def test_run_zone_sequence_start_failure(mock_system_controller):
     # Mock asyncio.sleep at the system level
     with patch('isprinklr.system_controller.asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
         # Test sequence - durations in seconds
-        zone_sequence = [[1, 60], [2, 60]]  # Two zones, 1 minute each in seconds
+        zones = [
+            {"zone": 1, "duration": 60},  # 1 minute
+            {"zone": 2, "duration": 60}   # 1 minute
+        ]
         
         # Run the sequence
-        result = await mock_system_controller.run_zone_sequence(zone_sequence)
+        result = await mock_system_controller.run_zone_sequence(zones)
         
         assert result == False
         assert mock_system_controller.start_sprinkler.call_count == 1  # Should fail on first zone
@@ -171,10 +177,13 @@ async def test_run_zone_sequence_stop_failure(mock_system_controller):
     # Mock asyncio.sleep at the system level
     with patch('isprinklr.system_controller.asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
         # Test sequence - durations in seconds
-        zone_sequence = [[1, 60], [2, 60]]  # Two zones, 1 minute each in seconds
+        zones = [
+            {"zone": 1, "duration": 60},  # 1 minute
+            {"zone": 2, "duration": 60}   # 1 minute
+        ]
         
         # Run the sequence
-        result = await mock_system_controller.run_zone_sequence(zone_sequence)
+        result = await mock_system_controller.run_zone_sequence(zones)
         
         assert result == False
         assert mock_system_controller.start_sprinkler.call_count == 1  # Should fail after first zone

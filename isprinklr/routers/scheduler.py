@@ -3,11 +3,14 @@
 # as well as managing the active schedule and schedule automation
 
 import logging
-from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, HTTPException
+from typing import List, Dict, Any, Optional, Tuple
+from datetime import datetime
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 
 from ..schemas import Schedule, ScheduleItem
 from isprinklr.system_status import system_status, schedule_database
+from isprinklr.schedule_util import get_scheduled_zones
+from isprinklr.system_controller import system_controller
 
 logger = logging.getLogger(__name__)
 
@@ -188,4 +191,132 @@ async def update_schedule_on_off(schedule_on_off: bool) -> Dict[str, bool]:
         return {"schedule_on_off": system_status.schedule_on_off}
     except Exception as exc:
         logger.error(f"Failed to update schedule on/off: {exc}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+async def run_schedule_background(zones: List[Dict[str, int]]) -> None:
+    """Background task to run a sequence of zones.
+    
+    Args:
+        zones: List of dictionaries containing zone and duration
+    """
+    try:
+        await system_controller.run_zone_sequence(zones)
+    except Exception as exc:
+        logger.error(f"Error running zone sequence in background: {exc}")
+
+async def _run_schedule_helper(schedule: Schedule) -> Tuple[List[Dict[str, int]], bool]:
+    """Helper function to handle the common logic for running a schedule.
+    
+    Args:
+        schedule: The schedule to run
+        
+    Returns:
+        Tuple containing:
+            - List of zones to run with their durations
+            - Boolean indicating if there are no zones scheduled (True = no zones)
+            
+    Raises:
+        HTTPException: If system is already running
+    """
+    # Check if system is already running
+    if system_status.active_zone:
+        raise HTTPException(
+            status_code=409,
+            detail=f"System is already running zone {system_status.active_zone}"
+        )
+    
+    # Get today's date in MMDDYY format
+    today = datetime.now().strftime("%m%d%y")
+    
+    # Get zones scheduled for today
+    zones = get_scheduled_zones(schedule["schedule_items"], today)
+    
+    return zones, not bool(zones)
+
+@router.post("/schedule/{schedule_name}/run")
+async def run_schedule(schedule_name: str, background_tasks: BackgroundTasks) -> Dict[str, Any]:
+    """Run a specific schedule immediately.
+
+    This endpoint will start running the specified schedule's zones that are scheduled for today.
+    Each zone will run for its configured duration. The zones will run in the background and
+    this endpoint will return immediately with the list of zones that will be run.
+
+    Parameters:
+        schedule_name (str): Name of the schedule to run
+        background_tasks: FastAPI background tasks handler
+
+    Returns:
+        Dict[str, Any]: Success message and list of zones that will be run
+
+    Raises:
+        HTTPException: If schedule is not found or if system is already running
+    """
+    try:
+        # Get the schedule
+        schedule = schedule_database.get_schedule(schedule_name)
+        
+        # Use helper to handle common schedule running logic
+        zones, no_zones = await _run_schedule_helper(schedule)
+        
+        if no_zones:
+            return {"message": "No zones scheduled for today", "zones": []}
+        
+        # Add the zone sequence execution to background tasks
+        background_tasks.add_task(run_schedule_background, zones)
+        
+        return {
+            "message": "Started running schedule",
+            "zones": zones
+        }
+        
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"Failed to run schedule: {exc}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.post("/active/run")
+async def run_active_schedule(background_tasks: BackgroundTasks) -> Dict[str, Any]:
+    """Run the active schedule immediately.
+
+    This endpoint will start running the active schedule's zones that are scheduled for today.
+    Each zone will run for its configured duration. The zones will run in the background and
+    this endpoint will return immediately with the list of zones that will be run.
+
+    Parameters:
+        background_tasks: FastAPI background tasks handler
+
+    Returns:
+        Dict[str, Any]: Success message and list of zones that will be run
+
+    Raises:
+        HTTPException: If no active schedule is set, if system is already running,
+                      or if other errors occur
+    """
+    try:
+        # Get the active schedule
+        schedule = schedule_database.get_active_schedule()
+        
+        # Use helper to handle common schedule running logic
+        zones, no_zones = await _run_schedule_helper(schedule)
+        
+        if no_zones:
+            return {"message": "No zones scheduled for today", "zones": []}
+        
+        # Add the zone sequence execution to background tasks
+        background_tasks.add_task(run_schedule_background, zones)
+        
+        return {
+            "message": "Started running active schedule",
+            "zones": zones
+        }
+        
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"Failed to run active schedule: {exc}")
         raise HTTPException(status_code=500, detail="Internal server error")

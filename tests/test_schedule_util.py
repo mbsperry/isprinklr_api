@@ -1,169 +1,184 @@
-import logging, os, pytest
-from logging.handlers import RotatingFileHandler
-from copy import deepcopy
-
-from context import isprinklr
-from isprinklr.paths import logs_path
-from isprinklr.schemas import ScheduleItem
+import pytest
+from datetime import datetime
 from isprinklr.schedule_util import validate_schedule, validate_schedule_list, get_scheduled_zones
 
-logging.basicConfig(handlers=[RotatingFileHandler(logs_path + '/test.log', maxBytes=1024*1024, backupCount=1, mode='a')],
-                    datefmt='%m-%d-%Y %H:%M:%S',
-                    level=logging.DEBUG)
-
-logger = logging.getLogger(__name__)
-
-good_sprinklers = [
+test_sprinklers = [
     {"zone": 1, "name": "Front Lawn"},
     {"zone": 2, "name": "Back Lawn"},
-    {"zone": 3, "name": "Side Lawn"},
-    {"zone": 4, "name": "Rear Lawn"},
+    {"zone": 3, "name": "Garden"},
+    {"zone": 4, "name": "Flowers"},
+    {"zone": 5, "name": "Side Yard"},
+    {"zone": 6, "name": "Patio"},
+    {"zone": 7, "name": "Unused"},
+    {"zone": 8, "name": "Extra"}
 ]
 
-good_schedule = [
-    {"zone": 1, "day": "M:W:F", "duration": 600},  # 10 minutes, MWF
-    {"zone": 2, "day": "Tu:Th", "duration": 900},  # 15 minutes, TTh
-    {"zone": 3, "day": "EO", "duration": 1200},    # 20 minutes, Every Other day
-    {"zone": 4, "day": "ALL", "duration": 300},    # 5 minutes, Every day
-]
+def test_validate_schedule_valid():
+    schedule = [
+        {"zone": 1, "day": "M:W:F", "duration": 300},
+        {"zone": 2, "day": "Tu:Th", "duration": 300},
+        {"zone": 3, "day": "Sa:Su", "duration": 300}
+    ]
+    assert validate_schedule(schedule, test_sprinklers) == True
 
-# Test schedules with durations in seconds
-bad_schedules = {
-    "duplicate_zones": [
-        {"zone": 1, "day": "M", "duration": 600},  # 10 minutes in seconds
-        {"zone": 1, "day": "Tu", "duration": 600},
-    ],
-    "invalid_days": [
-        {"zone": 1, "day": "Mon", "duration": 600},
-        {"zone": 2, "day": "Tu", "duration": 600},
-    ],
-    "duration_too_long": [
-        {"zone": 1, "day": "M", "duration": 7800},  # Over 2 hours (7200 seconds)
-        {"zone": 2, "day": "Tu", "duration": 600},
-    ],
-    "duration_too_short": [
-        {"zone": 1, "day": "M", "duration": -1},
-        {"zone": 2, "day": "Tu", "duration": 600},
-    ],
-    "zone_not_in_sprinklers": [
-        {"zone": 1, "day": "M", "duration": 600},
-        {"zone": 5, "day": "Tu", "duration": 600},
-    ],
-}
+def test_validate_schedule_case_insensitive():
+    """Test that day validation is case insensitive."""
+    schedule = [
+        {"zone": 1, "day": "m:W:f", "duration": 300},      # lowercase
+        {"zone": 2, "day": "TU:th", "duration": 300},      # mixed case
+        {"zone": 3, "day": "sa:SU", "duration": 300},      # mixed case
+        {"zone": 4, "day": "all", "duration": 300},        # lowercase special
+        {"zone": 5, "day": "EO", "duration": 300},         # uppercase special
+        {"zone": 6, "day": "NoNe", "duration": 300},       # mixed case special
+    ]
+    assert validate_schedule(schedule, test_sprinklers) == True
 
-def test_schedule_validation():
-    """Test validation of individual schedules"""
-    # Test valid schedule
-    assert validate_schedule(good_schedule, good_sprinklers) == True
+def test_validate_schedule_invalid_zone():
+    schedule = [
+        {"zone": 99, "day": "M:W:F", "duration": 300}
+    ]
+    with pytest.raises(ValueError, match="Invalid zone"):
+        validate_schedule(schedule, test_sprinklers)
 
-    try:
-        validate_schedule(bad_schedules["duplicate_zones"], good_sprinklers)
-        pytest.fail("Expected ValueError for duplicate zones")
-    except ValueError:
-        pass
+def test_validate_schedule_invalid_duration():
+    schedule = [
+        {"zone": 1, "day": "M:W:F", "duration": -1}
+    ]
+    with pytest.raises(ValueError, match="Invalid duration"):
+        validate_schedule(schedule, test_sprinklers)
 
-    try:
-        validate_schedule(bad_schedules["invalid_days"], good_sprinklers)
-        pytest.fail("Expected ValueError for invalid days")
-    except ValueError:
-        pass
+def test_validate_schedule_invalid_day():
+    schedule = [
+        {"zone": 1, "day": "INVALID", "duration": 300}
+    ]
+    with pytest.raises(ValueError, match="Invalid day"):
+        validate_schedule(schedule, test_sprinklers)
 
-    try:
-        validate_schedule(bad_schedules["duration_too_long"], good_sprinklers)
-        pytest.fail("Expected ValueError for duration too long")
-    except ValueError:
-        pass
+def test_validate_schedule_duplicate_zones():
+    schedule = [
+        {"zone": 1, "day": "M:W:F", "duration": 300},
+        {"zone": 1, "day": "Tu:Th", "duration": 300}
+    ]
+    with pytest.raises(ValueError, match="Duplicate zones"):
+        validate_schedule(schedule, test_sprinklers)
 
-    try:
-        validate_schedule(bad_schedules["duration_too_short"], good_sprinklers)
-        pytest.fail("Expected ValueError for duration too short")
-    except ValueError:
-        pass
+def test_validate_schedule_invalid_special_day_combination():
+    """Test that special days (ALL, NONE, EO) cannot be combined with other days."""
+    invalid_schedules = [
+        [{"zone": 1, "day": "ALL:M", "duration": 300}],
+        [{"zone": 2, "day": "NONE:Tu", "duration": 300}],
+        [{"zone": 3, "day": "EO:W", "duration": 300}],
+        [{"zone": 4, "day": "M:ALL", "duration": 300}],
+    ]
+    for schedule in invalid_schedules:
+        with pytest.raises(ValueError, match="Invalid day"):
+            validate_schedule(schedule, test_sprinklers)
 
-    try:
-        validate_schedule(bad_schedules["zone_not_in_sprinklers"], good_sprinklers)
-        pytest.fail("Expected ValueError for invalid zone")
-    except ValueError:
-        pass
-
-def test_schedule_list_validation():
-    """Test validation of schedule lists"""
-    good_schedule_list = [
+def test_validate_schedule_list_valid():
+    schedules = [
         {
-            "schedule_name": "Default Schedule",
+            "schedule_name": "Schedule 1",
             "schedule_items": [
-                {"zone": 1, "day": "M", "duration": 600},
-                {"zone": 2, "day": "Tu", "duration": 600},
+                {"zone": 1, "day": "M:W:F", "duration": 300},
+                {"zone": 2, "day": "Tu:Th", "duration": 300}
             ]
         },
         {
-            "schedule_name": "Summer Schedule",
+            "schedule_name": "Schedule 2",
             "schedule_items": [
-                {"zone": 3, "day": "W", "duration": 600},
-                {"zone": 4, "day": "Th", "duration": 600},
+                {"zone": 3, "day": "Sa:Su", "duration": 300}
             ]
         }
     ]
+    assert validate_schedule_list(schedules, test_sprinklers) == True
 
-    # Test valid schedule list
-    assert validate_schedule_list(good_schedule_list, good_sprinklers) == True
-
-    # Test duplicate schedule names
-    bad_schedule_list = deepcopy(good_schedule_list)
-    bad_schedule_list[1]["schedule_name"] = "Default Schedule"
-    try:
-        validate_schedule_list(bad_schedule_list, good_sprinklers)
-        pytest.fail("Expected ValueError for duplicate schedule names")
-    except ValueError as e:
-        assert str(e) == "Validation Error: Duplicate schedule names"
-
-    # Test missing schedule name
-    bad_schedule_list = deepcopy(good_schedule_list)
-    bad_schedule_list[0]["schedule_name"] = ""
-    try:
-        validate_schedule_list(bad_schedule_list, good_sprinklers)
-        pytest.fail("Expected ValueError for missing schedule name")
-    except ValueError:
-        pass
-
-    # Test invalid schedule items
-    bad_schedule_list = deepcopy(good_schedule_list)
-    bad_schedule_list[0]["schedule_items"] = bad_schedules["invalid_days"]
-    try:
-        validate_schedule_list(bad_schedule_list, good_sprinklers)
-        pytest.fail("Expected ValueError for invalid schedule items")
-    except ValueError:
-        pass
-
-def test_get_scheduled_zones():
-    """Test getting scheduled zones for a date"""
-    test_schedule = [
-        {"zone": 1, "day": "M", "duration": 600},      # Monday, 10 minutes
-        {"zone": 2, "day": "ALL", "duration": 900},    # Every day, 15 minutes
-        {"zone": 3, "day": "EO", "duration": 1200},    # Odd days, 20 minutes
-        {"zone": 4, "day": "NONE", "duration": 1500},  # Never, 25 minutes
-        {"zone": 5, "day": "M:W:F", "duration": 600},  # M:W:F, 10 minutes
+def test_validate_schedule_list_duplicate_names():
+    schedules = [
+        {
+            "schedule_name": "Schedule 1",
+            "schedule_items": [
+                {"zone": 1, "day": "M:W:F", "duration": 300}
+            ]
+        },
+        {
+            "schedule_name": "Schedule 1",
+            "schedule_items": [
+                {"zone": 2, "day": "Tu:Th", "duration": 300}
+            ]
+        }
     ]
+    with pytest.raises(ValueError, match="Duplicate schedule names"):
+        validate_schedule_list(schedules, test_sprinklers)
 
-    # Test Monday on odd day (01/02/23)
-    monday_zones = get_scheduled_zones(test_schedule, "010223")
-    assert len(monday_zones) == 3
-    assert {"zone": 1, "duration": 600} in monday_zones  # Monday
-    assert {"zone": 2, "duration": 900} in monday_zones  # ALL
-    assert {"zone": 5, "duration": 600} in monday_zones  # M:W:F
+def test_get_scheduled_zones_thursday():
+    """Test that all zones scheduled for Thursday are returned."""
+    schedule = [
+        {"zone": 1, "day": "EO", "duration": 60},      # Even/Odd days
+        {"zone": 2, "day": "ALL", "duration": 60},     # Every day
+        {"zone": 3, "day": "M:W:F", "duration": 60},   # Not Thursday
+        {"zone": 4, "day": "Tu:Th", "duration": 60},   # Includes Thursday
+        {"zone": 5, "day": "W:Th:F", "duration": 60},  # Includes Thursday
+        {"zone": 6, "day": "Sa:Su", "duration": 60},   # Not Thursday
+        {"zone": 7, "day": "NONE", "duration": 60},    # Never
+        {"zone": 8, "day": "Su:Th", "duration": 60}    # Includes Thursday
+    ]
+    
+    # Use a Thursday date (December 19, 2024 is a Thursday)
+    thursday_zones = get_scheduled_zones(schedule, "121924")
+    
+    # Should include zones 2 (ALL), 4 (Tu:Th), 5 (W:Th:F), and 8 (Su:Th)
+    expected_zones = [
+        {"zone": 2, "duration": 60},
+        {"zone": 4, "duration": 60},
+        {"zone": 5, "duration": 60},
+        {"zone": 8, "duration": 60}
+    ]
+    
+    assert sorted(thursday_zones, key=lambda x: x["zone"]) == sorted(expected_zones, key=lambda x: x["zone"])
 
-    # Test Tuesday on odd day (01/03/23)
-    tuesday_zones = get_scheduled_zones(test_schedule, "010323")
-    assert len(tuesday_zones) == 2
-    assert {"zone": 2, "duration": 900} in tuesday_zones  # ALL
-    assert {"zone": 3, "duration": 1200} in tuesday_zones  # EO
+def test_get_scheduled_zones_case_insensitive():
+    """Test that get_scheduled_zones is case insensitive."""
+    schedule = [
+        {"zone": 1, "day": "all", "duration": 60},     # lowercase ALL
+        {"zone": 2, "day": "tu:TH", "duration": 60},   # mixed case days
+        {"zone": 3, "day": "NONE", "duration": 60},    # uppercase NONE
+        {"zone": 4, "day": "eo", "duration": 60}       # lowercase EO
+    ]
+    
+    # Use a Thursday date (December 19, 2024 is a Thursday)
+    thursday_zones = get_scheduled_zones(schedule, "121924")
+    
+    # Should include zones 1 (all) and 2 (tu:TH)
+    expected_zones = [
+        {"zone": 1, "duration": 60},
+        {"zone": 2, "duration": 60}
+    ]
+    
+    assert sorted(thursday_zones, key=lambda x: x["zone"]) == sorted(expected_zones, key=lambda x: x["zone"])
 
-    # Test Wednesday on even day (01/04/23)
-    wednesday_zones = get_scheduled_zones(test_schedule, "010423")
-    assert len(wednesday_zones) == 2
-    assert {"zone": 5, "duration": 600} in wednesday_zones  # M:W:F
-    assert {"zone": 2, "duration": 900} in wednesday_zones  # ALL
+def test_get_scheduled_zones_even_day():
+    """Test that even/odd day scheduling works correctly."""
+    schedule = [
+        {"zone": 1, "day": "EO", "duration": 60},  # Even/Odd days
+        {"zone": 2, "day": "ALL", "duration": 60}  # Every day
+    ]
+    
+    # December 20, 2024 is day 355 of the year (odd)
+    odd_day_zones = get_scheduled_zones(schedule, "122024")
+    assert {"zone": 1, "duration": 60} in odd_day_zones
+    assert {"zone": 2, "duration": 60} in odd_day_zones
+    
+    # December 19, 2024 is day 354 of the year (even)
+    even_day_zones = get_scheduled_zones(schedule, "121924")
+    assert {"zone": 1, "duration": 60} not in even_day_zones
+    assert {"zone": 2, "duration": 60} in even_day_zones
 
-    # Test invalid date format
-    invalid_zones = get_scheduled_zones(test_schedule, "invalid")
-    assert len(invalid_zones) == 0
+def test_get_scheduled_zones_invalid_date():
+    """Test handling of invalid date format."""
+    schedule = [
+        {"zone": 1, "day": "ALL", "duration": 60}
+    ]
+    
+    # Invalid date format
+    zones = get_scheduled_zones(schedule, "invalid")
+    assert zones == []

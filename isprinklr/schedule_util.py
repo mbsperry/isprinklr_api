@@ -27,7 +27,7 @@ def validate_schedule(schedule: list[ScheduleItem], sprinklers: list[SprinklerCo
     Returns:
         bool: True if the schedule passes all validation checks.
     """
-    valid_days = {"M", "Tu", "W", "Th", "F", "Sa", "Su", "ALL", "NONE", "EO"}
+    valid_days = {"M", "TU", "W", "TH", "F", "SA", "SU", "ALL", "NONE", "EO"}
     sprinkler_zones = [x["zone"] for x in sprinklers]
     # check that each zone is only used once
     if len(schedule) != len(set([x["zone"] for x in schedule])):
@@ -44,7 +44,7 @@ def validate_schedule(schedule: list[ScheduleItem], sprinklers: list[SprinklerCo
             logger.error(f"Invalid duration in schedule: {item}")
             raise ValueError("Validation Error: Invalid duration (must be between 0 and 7200 seconds)")
         # Check if the day is valid
-        days = item["day"].split(':')
+        days = [d.upper() for d in item["day"].split(':')]
         if not all(day in valid_days for day in days):
             logger.error(f"Invalid day in schedule: {item}")
             raise ValueError("Validation Error: Invalid day")
@@ -103,7 +103,7 @@ def get_scheduled_zones(schedule: List[ScheduleItem], date_str: str) -> List[Spr
         return []
 
     # Map day of week (0-6, where 0 is Monday) to day abbreviation
-    day_map = {0: "M", 1: "Tu", 2: "W", 3: "Th", 4: "F", 5: "Sa", 6: "Su"}
+    day_map = {0: "M", 1: "TU", 2: "W", 3: "TH", 4: "F", 5: "SA", 6: "SU"}
     current_day = day_map[date.weekday()]
     day_of_year = int(date.strftime("%j"))
 
