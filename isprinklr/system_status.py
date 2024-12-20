@@ -1,5 +1,5 @@
 import json, logging, time
-from typing import Any, Optional, List
+from typing import Any, Optional, List, Dict
 
 from .paths import config_path, data_path
 import isprinklr.sprinkler_service as sprinkler_service
@@ -41,20 +41,66 @@ class SystemStatus:
         self._end_time: Optional[float] = None
         self._sprinklers: List[SprinklerConfig] = sprinkler_service.read_sprinklers(data_path)
         self._schedule_on_off: bool = False  # Initialize to False
-        self._last_run: Optional[int] = None
-        self._last_schedule_run: Optional[int] = None
+        self._last_run: Optional[Dict[str, Any]] = None
+        self._last_schedule_run: Optional[Dict[str, Any]] = None
         
         # Initialize schedule_database with sprinklers
         schedule_database.set_sprinklers(self._sprinklers)
         schedule_database.load_database()
 
     @property
-    def last_run(self) -> Optional[int]:
+    def last_run(self) -> Optional[Dict[str, Any]]:
+        """Get information about the last zone that was run.
+        
+        Returns:
+            Optional[Dict[str, Any]]: Dictionary containing:
+                - zone (int): The zone number that was run
+                - timestamp (float): Unix timestamp when the zone was run
+                Or None if no zone has been run
+        """
         return self._last_run
     
+    @last_run.setter 
+    def last_run(self, zone: int):
+        """Set information about the last zone run.
+        
+        Args:
+            zone (int): The zone number that was run
+        """
+        import time
+        self._last_run = {
+            "zone": zone,
+            "timestamp": time.time()
+        }
+    
     @property
-    def last_schedule_run(self) -> Optional[int]:
+    def last_schedule_run(self) -> Optional[Dict[str, Any]]:
+        """Get information about the last schedule that was run.
+        
+        Returns:
+            Optional[Dict[str, Any]]: Dictionary containing:
+                - name (str): Name of the schedule that was run
+                - timestamp (float): Unix timestamp when schedule was run
+                - message (str): Status message about the schedule run
+                Or None if no schedule has been run
+        """
         return self._last_schedule_run
+    
+    @last_schedule_run.setter
+    def last_schedule_run(self, data: Dict[str, Any]):
+        """Set information about the last schedule run.
+        
+        Args:
+            data (dict): Dictionary containing:
+                - name (str): Name of the schedule that was run
+                - message (str): Status message about the schedule run
+        """
+        import time
+        self._last_schedule_run = {
+            "name": data["name"],
+            "timestamp": time.time(),
+            "message": data["message"]
+        }
     
     @property
     def schedule_on_off(self) -> bool:

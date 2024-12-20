@@ -119,10 +119,10 @@ async def test_zone_timer_auto_stop(mock_system_controller):
 @pytest.mark.asyncio
 async def test_run_zone_sequence_success(mock_system_controller):
     # Create a controllable sleep
-    sleep_event = asyncio.Event()
+    sleep_complete = asyncio.Event()
     async def controlled_sleep(duration):
-        sleep_event.set()  # Signal that sleep was called
-        await asyncio.sleep(0)  # Small delay to allow other tasks to run
+        # Signal that sleep was called and wait for test to complete it
+        await sleep_complete.wait()
     
     # Mock the sleep
     with patch('isprinklr.system_controller.asyncio.sleep', new=controlled_sleep):
@@ -132,22 +132,29 @@ async def test_run_zone_sequence_success(mock_system_controller):
             {"zone": 2, "duration": 120}   # 2 minutes
         ]
         
-        # Run the sequence
+        # Run the sequence in the background
         sequence_task = asyncio.create_task(mock_system_controller.run_zone_sequence(zones))
         
-        # Wait for first sleep to be called
-        await sleep_event.wait()
+        # Let the first zone's sleep complete
+        sleep_complete.set()
+        await asyncio.sleep(0.1)  # Give time for the sleep to actually complete
+        await mock_system_controller.stop_system()  # This will properly update system status
+        sleep_complete.clear()  # Reset for next zone
         
-        # Let the sequence complete
+        # Let the second zone's timer complete
+        sleep_complete.set()
+        
+        # Wait for sequence to complete
         await sequence_task
         
         # Verify cleanup
         assert mock_system_controller._sequence_task is None
-        # Timer task should be active for the last zone
-        assert mock_system_controller._timer_task is not None
+        # Timer task should be cleaned up after sequence completion
+        assert mock_system_controller._timer_task is None
 
 @pytest.mark.asyncio
 async def test_run_zone_sequence_start_failure(mock_system_controller):
+    """Test that zone sequence raises error when start_sprinkler fails"""
     # Mock start_sprinkler to fail
     mock_system_controller.start_sprinkler = AsyncMock(side_effect=Exception("Failed to start zone"))
 
@@ -157,17 +164,17 @@ async def test_run_zone_sequence_start_failure(mock_system_controller):
         {"zone": 2, "duration": 60}   # 1 minute
     ]
     
-    # Run the sequence
-    result = await mock_system_controller.run_zone_sequence(zones)
+    # Run the sequence and expect exception
+    with pytest.raises(Exception, match="Failed to start zone"):
+        await mock_system_controller.run_zone_sequence(zones)
     
-    assert result == False
     assert mock_system_controller.start_sprinkler.call_count == 1  # Should fail on first zone
     assert mock_system_controller._sequence_task is None
     assert mock_system_controller._timer_task is None
 
 @pytest.mark.asyncio
 async def test_stop_system_during_sequence(mock_system_controller):
-    """Test that stopping the system during a sequence properly cancels everything"""
+    """Test that stopping the system during a sequence raises CancelledError and cleans up"""
     # Create a controllable sleep
     sleep_event = asyncio.Event()
     sleep_started = asyncio.Event()
@@ -195,8 +202,9 @@ async def test_stop_system_during_sequence(mock_system_controller):
         # Allow sleep to complete
         sleep_event.set()
         
-        # Wait for sequence to finish
-        await sequence_task
+        # Wait for sequence to raise CancelledError
+        with pytest.raises(asyncio.CancelledError):
+            await sequence_task
         
         # Verify cleanup
         assert mock_system_controller._sequence_task is None
@@ -204,7 +212,7 @@ async def test_stop_system_during_sequence(mock_system_controller):
 
 @pytest.mark.asyncio
 async def test_sequence_cancelled_mid_zone(mock_system_controller):
-    """Test that cancelling a sequence mid-zone properly cleans up"""
+    """Test that cancelling a sequence mid-zone raises CancelledError and cleans up"""
     # Create a controllable sleep
     sleep_event = asyncio.Event()
     sleep_started = asyncio.Event()
@@ -232,8 +240,9 @@ async def test_sequence_cancelled_mid_zone(mock_system_controller):
         # Allow sleep to complete
         sleep_event.set()
         
-        # Wait for sequence to finish
-        await sequence_task
+        # Wait for sequence to raise CancelledError
+        with pytest.raises(asyncio.CancelledError):
+            await sequence_task
         
         # Verify cleanup
         assert mock_system_controller._sequence_task is None

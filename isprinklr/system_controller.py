@@ -74,6 +74,7 @@ class SystemController:
                 if (hunterserial.start_zone(sprinkler['zone'], duration_minutes)):
                     logger.debug(f"Started zone {sprinkler['zone']} for {sprinkler['duration']} seconds: success")
                     system_status.update_status("active", None, sprinkler['zone'], sprinkler['duration'])
+                    system_status.last_run = sprinkler['zone']
                     
                     # Create and start new timer task
                     self._timer_task = asyncio.create_task(self._zone_timer(sprinkler['duration']))
@@ -152,7 +153,11 @@ class SystemController:
                 * duration (int): Duration in seconds
             
         Returns:
-            True if all zones completed successfully or if sequence was cancelled cleanly
+            True if all zones completed successfully
+            
+        Raises:
+            asyncio.CancelledError: If sequence is cancelled
+            Exception: If any zone fails or other errors occur
         """
         try:
             # Create a new task for the sequence
@@ -161,10 +166,10 @@ class SystemController:
             return True
         except asyncio.CancelledError:
             logger.info("Zone sequence cancelled")
-            return True
+            raise
         except Exception as e:
             logger.error(f"Error running zone sequence: {e}")
-            return False
+            raise
         finally:
             self._sequence_task = None
 
@@ -185,6 +190,8 @@ class SystemController:
                     await self.start_sprinkler(zone)
                     try:
                         await asyncio.sleep(zone['duration'])
+                        # Stop the current zone before moving to the next one
+                        await self.stop_system()
                     except asyncio.CancelledError:
                         logger.debug(f"Zone {zone['zone']} cancelled before completion")
                         raise

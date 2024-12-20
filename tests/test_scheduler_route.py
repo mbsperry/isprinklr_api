@@ -156,6 +156,7 @@ def test_update_schedule_on_off(mocker):
     assert response.json() == {"schedule_on_off": False}
 
 def test_run_schedule_success(mocker):
+    """Test successful schedule run"""
     # Mock dependencies
     scheduled_zones = [
         {"zone": 1, "duration": 60},
@@ -164,8 +165,60 @@ def test_run_schedule_success(mocker):
     mocker.patch.object(isprinklr.system_status.schedule_database, 'get_schedule', return_value=test_schedule)
     mocker.patch.object(scheduler, 'get_scheduled_zones', return_value=scheduled_zones)
     mocker.patch.object(SystemStatus, 'active_zone', new_callable=mocker.PropertyMock, return_value=None)
-    # Mock the run_zone_sequence method
-    run_sequence_mock = AsyncMock()
+    # Mock run_zone_sequence to return True for success
+    run_sequence_mock = AsyncMock(return_value=True)
+    mocker.patch.object(system_controller, 'run_zone_sequence', run_sequence_mock)
+    
+    response = client.post("/api/scheduler/schedule/Test Schedule/run")
+    assert response.status_code == 200
+    result = response.json()
+    assert result["message"] == "Started running schedule"
+    assert result["zones"] == scheduled_zones
+    
+    # Let the background task complete
+    asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.1))
+    
+    # Verify last_schedule_run was set with success message
+    last_run = isprinklr.system_status.system_status.last_schedule_run
+    assert last_run["name"] == "Test Schedule"
+    assert last_run["message"] == "Success"
+    assert "timestamp" in last_run
+
+def test_run_schedule_cancelled(mocker):
+    """Test schedule run that gets cancelled"""
+    # Mock dependencies
+    scheduled_zones = [{"zone": 1, "duration": 60}]
+    mocker.patch.object(isprinklr.system_status.schedule_database, 'get_schedule', return_value=test_schedule)
+    mocker.patch.object(scheduler, 'get_scheduled_zones', return_value=scheduled_zones)
+    mocker.patch.object(SystemStatus, 'active_zone', new_callable=mocker.PropertyMock, return_value=None)
+    # Mock run_zone_sequence to raise CancelledError
+    run_sequence_mock = AsyncMock(side_effect=asyncio.CancelledError())
+    mocker.patch.object(system_controller, 'run_zone_sequence', run_sequence_mock)
+    
+    response = client.post("/api/scheduler/schedule/Test Schedule/run")
+    assert response.status_code == 200
+    result = response.json()
+    assert result["message"] == "Started running schedule"
+    assert result["zones"] == scheduled_zones
+    
+    # Let the background task complete
+    asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.1))
+    
+    # Verify last_schedule_run was set with cancelled message
+    last_run = isprinklr.system_status.system_status.last_schedule_run
+    assert last_run["name"] == "Test Schedule"
+    assert last_run["message"] == "Cancelled"
+    assert "timestamp" in last_run
+
+def test_run_schedule_error(mocker):
+    """Test schedule run that encounters an error"""
+    # Mock dependencies
+    scheduled_zones = [{"zone": 1, "duration": 60}]
+    mocker.patch.object(isprinklr.system_status.schedule_database, 'get_schedule', return_value=test_schedule)
+    mocker.patch.object(scheduler, 'get_scheduled_zones', return_value=scheduled_zones)
+    mocker.patch.object(SystemStatus, 'active_zone', new_callable=mocker.PropertyMock, return_value=None)
+    # Mock run_zone_sequence to raise an error
+    run_sequence_mock = AsyncMock(side_effect=Exception("Hardware error"))
     mocker.patch.object(system_controller, 'run_zone_sequence', run_sequence_mock)
     
     response = client.post("/api/scheduler/schedule/Test Schedule/run")
@@ -208,6 +261,7 @@ def test_run_schedule_not_found(mocker):
     assert "not found" in response.json()["detail"]
 
 def test_run_active_schedule_success(mocker):
+    """Test successful active schedule run"""
     # Mock dependencies
     scheduled_zones = [
         {"zone": 1, "duration": 60},
@@ -216,9 +270,24 @@ def test_run_active_schedule_success(mocker):
     mocker.patch.object(isprinklr.system_status.schedule_database, 'get_active_schedule', return_value=test_schedule)
     mocker.patch.object(scheduler, 'get_scheduled_zones', return_value=scheduled_zones)
     mocker.patch.object(SystemStatus, 'active_zone', new_callable=mocker.PropertyMock, return_value=None)
-    # Mock the run_zone_sequence method
-    run_sequence_mock = AsyncMock()
+    # Mock run_zone_sequence to return True for success
+    run_sequence_mock = AsyncMock(return_value=True)
     mocker.patch.object(system_controller, 'run_zone_sequence', run_sequence_mock)
+    
+    response = client.post("/api/scheduler/active/run")
+    assert response.status_code == 200
+    result = response.json()
+    assert result["message"] == "Started running active schedule"
+    assert result["zones"] == scheduled_zones
+    
+    # Let the background task complete
+    asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.1))
+    
+    # Verify last_schedule_run was set with success message
+    last_run = isprinklr.system_status.system_status.last_schedule_run
+    assert last_run["name"] == test_schedule["schedule_name"]
+    assert last_run["message"] == "Success"
+    assert "timestamp" in last_run
     
     response = client.post("/api/scheduler/active/run")
     assert response.status_code == 200

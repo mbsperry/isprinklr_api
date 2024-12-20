@@ -6,6 +6,7 @@ import logging
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, BackgroundTasks
+from asyncio import CancelledError
 
 from ..schemas import Schedule, ScheduleItem
 from isprinklr.system_status import system_status, schedule_database
@@ -193,16 +194,31 @@ async def update_schedule_on_off(schedule_on_off: bool) -> Dict[str, bool]:
         logger.error(f"Failed to update schedule on/off: {exc}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-async def run_schedule_background(zones: List[Dict[str, int]]) -> None:
+async def run_schedule_background(schedule_name: str, zones: List[Dict[str, int]]) -> None:
     """Background task to run a sequence of zones.
     
     Args:
+        schedule_name: Name of the schedule being run
         zones: List of dictionaries containing zone and duration
     """
     try:
         await system_controller.run_zone_sequence(zones)
+        system_status.last_schedule_run = {
+            "name": schedule_name,
+            "message": "Success"
+        }
+    except CancelledError:
+        logger.info("Schedule cancelled")
+        system_status.last_schedule_run = {
+            "name": schedule_name,
+            "message": "Cancelled"
+        }
     except Exception as exc:
-        logger.error(f"Error running zone sequence in background: {exc}")
+        logger.error(f"Error running schedule: {exc}")
+        system_status.last_schedule_run = {
+            "name": schedule_name,
+            "message": f"Error: {str(exc)}"
+        }
 
 async def _run_schedule_helper(schedule: Schedule) -> Tuple[List[Dict[str, int]], bool]:
     """Helper function to handle the common logic for running a schedule.
@@ -261,8 +277,8 @@ async def run_schedule(schedule_name: str, background_tasks: BackgroundTasks) ->
         if no_zones:
             return {"message": "No zones scheduled for today", "zones": []}
         
-        # Add the zone sequence execution to background tasks
-        background_tasks.add_task(run_schedule_background, zones)
+        # Add the zone sequence execution to background tasks and ensure it's properly awaited
+        background_tasks.add_task(run_schedule_background, schedule_name, zones)
         
         return {
             "message": "Started running schedule",
@@ -306,7 +322,7 @@ async def run_active_schedule(background_tasks: BackgroundTasks) -> Dict[str, An
             return {"message": "No zones scheduled for today", "zones": []}
         
         # Add the zone sequence execution to background tasks
-        background_tasks.add_task(run_schedule_background, zones)
+        background_tasks.add_task(run_schedule_background, schedule["schedule_name"], zones)
         
         return {
             "message": "Started running active schedule",
