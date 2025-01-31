@@ -1,5 +1,6 @@
 import logging
 from fastapi import APIRouter, HTTPException
+from typing import List
 
 from ..paths import logs_path
 
@@ -48,6 +49,34 @@ Raises:
                         continue
                     filtered_lines.append(line)
             return filtered_lines[-lines:]
+    except FileNotFoundError:
+        logger.error("API Log file not found")
+        raise HTTPException(status_code=404, detail="Log file not found")
+    except Exception as e:
+        logger.error(f"An error occurred: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+@router.get("/module_list")
+async def get_available_modules() -> List[str]:
+    """Retrieve all unique module names from the system logs.
+
+    Returns:
+        List[str]: Sorted list of unique module names found in the logs
+
+    Raises:
+        HTTPException:
+            * 404: If log file is not found
+            * 500: If log file cannot be read
+    """
+    try:
+        with open(logs_path + "/api.log", "r") as f:
+            log_lines = f.readlines()
+            modules = set()
+            for line in log_lines:
+                parts = line.split()
+                if len(parts) >= 4:
+                    modules.add(parts[2])
+            return sorted(modules)
     except FileNotFoundError:
         logger.error("API Log file not found")
         raise HTTPException(status_code=404, detail="Log file not found")

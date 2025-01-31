@@ -73,3 +73,25 @@ def test_get_logs_empty_file():
         logs = response.json()
         assert isinstance(logs, list)
         assert len(logs) == 0
+
+def test_get_module_list():
+    with patch("builtins.open", mock_open(read_data=SAMPLE_LOGS)):
+        response = client.get("/api/logs/module_list")
+        assert response.status_code == 200
+        modules = response.json()
+        assert isinstance(modules, list)
+        assert sorted(modules) == ["isprinklr.routers.sprinklers", "isprinklr.system"]
+
+def test_get_module_list_empty_file():
+    with patch("builtins.open", mock_open(read_data="")):
+        response = client.get("/api/logs/module_list")
+        assert response.status_code == 200
+        modules = response.json()
+        assert isinstance(modules, list)
+        assert len(modules) == 0
+
+def test_get_module_list_file_not_found():
+    with patch("builtins.open", side_effect=FileNotFoundError):
+        response = client.get("/api/logs/module_list")
+        assert response.status_code == 404
+        assert response.json() == {"detail": "Log file not found"}
