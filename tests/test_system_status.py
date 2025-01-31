@@ -1,14 +1,12 @@
 import logging, os, pytest, asyncio
 from logging.handlers import RotatingFileHandler
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 from typing import List
 
 from context import isprinklr
 from isprinklr.paths import logs_path
-from isprinklr.schemas import ScheduleItem, SprinklerConfig, SprinklerCommand
+from isprinklr.schemas import SprinklerConfig
 from isprinklr.system_status import SystemStatus
-import isprinklr.sprinkler_service
-import isprinklr.schedule_service
 
 logging.basicConfig(handlers=[RotatingFileHandler(logs_path + '/test.log', maxBytes=1024*1024, backupCount=1, mode='a')],
                     datefmt='%m-%d-%Y %H:%M:%S',
@@ -25,17 +23,11 @@ sprinklers: List[SprinklerConfig] = [
     {"zone": 4, "name": "Driveway"},    
 ]
 
-schedule = [
-    ScheduleItem(zone=1, day="M", duration=1800),  # 30 minutes in seconds
-    ScheduleItem(zone=2, day="Tu", duration=1800),
-    ScheduleItem(zone=3, day="W", duration=1800),
-    ScheduleItem(zone=4, day="Th", duration=1800),
-]
-
 @pytest.fixture
 def mock_system_status(mocker):
     mocker.patch('isprinklr.sprinkler_service.read_sprinklers', return_value=sprinklers)
-    mocker.patch('isprinklr.schedule_service.ScheduleService.read_schedule', return_value=schedule)
+    mocker.patch('isprinklr.system_status.schedule_database.set_sprinklers')
+    mocker.patch('isprinklr.system_status.schedule_database.load_database')
     system_status = SystemStatus()
     return system_status
 
@@ -50,6 +42,12 @@ async def cleanup_tasks():
             await task
         except asyncio.CancelledError:
             pass
+
+def test_init(mock_system_status, mocker):
+    """Test initialization sets up schedule_database correctly"""
+    from isprinklr.system_status import schedule_database
+    schedule_database.set_sprinklers.assert_called_once_with(sprinklers)
+    schedule_database.load_database.assert_called_once()
 
 def test_get_status(mock_system_status):
     assert mock_system_status.get_status() == {
@@ -68,9 +66,12 @@ def test_update_sprinklers_success(mock_system_status, mocker):
         {"zone": 2, "name": "Updated Back"}
     ]
     mocker.patch('isprinklr.sprinkler_service.write_sprinklers', return_value=True)
+    mocker.patch('isprinklr.system_status.schedule_database.set_sprinklers')
     result = mock_system_status.update_sprinklers(new_sprinklers)
     assert result == new_sprinklers
     assert mock_system_status._sprinklers == new_sprinklers
+    from isprinklr.system_status import schedule_database
+    schedule_database.set_sprinklers.assert_called_once_with(new_sprinklers)
 
 def test_update_sprinklers_validation_error(mock_system_status, mocker):
     invalid_sprinklers: List[SprinklerConfig] = [
@@ -125,3 +126,39 @@ def test_duration_decreases_with_time(mock_system_status):
         with patch('isprinklr.system_status.time.time', return_value=current_time):
             status = mock_system_status.get_status()
             assert status["duration"] == 0
+
+def test_schedule_on_off(mock_system_status):
+    """Test schedule on/off functionality"""
+    assert mock_system_status.schedule_on_off == False
+    mock_system_status.schedule_on_off = True
+    assert mock_system_status.schedule_on_off == True
+
+def test_last_zone_run(mock_system_status):
+    """Test last_zone_run tracking"""
+    assert mock_system_status.last_zone_run is None
+
+    # Set last run zone
+    mock_system_status.last_zone_run = 3
+
+    # Verify last run info
+    last_zone_run = mock_system_status.last_zone_run
+    assert last_zone_run["zone"] == 3
+    assert "timestamp" in last_zone_run
+    assert isinstance(last_zone_run["timestamp"], float)
+
+def test_last_schedule_run(mock_system_status):
+    """Test last_schedule_run tracking"""
+    assert mock_system_status.last_schedule_run is None
+    
+    # Set last schedule run
+    mock_system_status.last_schedule_run = {
+        "name": "Daily Schedule",
+        "message": "Success"
+    }
+    
+    # Verify last schedule run info
+    last_schedule = mock_system_status.last_schedule_run
+    assert last_schedule["name"] == "Daily Schedule"
+    assert last_schedule["message"] == "Success"
+    assert "timestamp" in last_schedule
+    assert isinstance(last_schedule["timestamp"], float)

@@ -11,6 +11,45 @@ router = APIRouter(
 
 logger = logging.getLogger(__name__)
 
+@router.get("/last-sprinkler-run")
+async def get_last_sprinkler_run():
+    """Get information about the last manually run zone.
+
+Returns:
+* Dictionary containing:
+  * zone (int): The zone number that was run
+  * timestamp (float): Unix timestamp when the zone was run
+  Or None if no zone has been run
+
+Raises:
+* HTTPException: If the last zone run status cannot be retrieved
+    """
+    try:
+        return system_status.last_zone_run
+    except Exception as exc:
+        logger.error(f"Failed to get last zone run status: {exc}")
+        raise HTTPException(status_code=500, detail="Failed to get last zone run status, see logs for details")
+
+@router.get("/last-schedule-run") 
+async def get_last_schedule_run():
+    """Get information about the last schedule that was run.
+
+Returns:
+* Dictionary containing:
+  * name (str): Name of the schedule that was run
+  * timestamp (float): Unix timestamp when schedule was run
+  * message (str): Status message (success, failure, canceled)
+  Or None if no schedule has been run
+
+Raises:
+* HTTPException: If the last schedule run status cannot be retrieved
+    """
+    try:
+        return system_status.last_schedule_run
+    except Exception as exc:
+        logger.error(f"Failed to get last schedule run status: {exc}")
+        raise HTTPException(status_code=500, detail="Failed to get last schedule run status, see logs for details")
+
 @router.get("/status")
 async def get_status():
     """Get the current system status including hardware connectivity check, active zones, remaining duration.

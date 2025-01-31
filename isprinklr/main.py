@@ -9,7 +9,7 @@ if not os.path.exists(logs_path):
     os.makedirs(logs_path)
 
 # Import singletons from package root
-from isprinklr.system_status import system_status
+from isprinklr.system_status import system_status, schedule_database
 from isprinklr.system_controller import system_controller
 from isprinklr.routers import scheduler, system, sprinklers, logs
 
@@ -25,10 +25,14 @@ async def get_system_status():
 async def get_system_controller():
     return system_controller
 
+async def get_schedule_database():
+    return schedule_database
+
 # This API is designed to be run inside a secure local netork. As such, there is no need for authentication or CORS middleware
 app = FastAPI(dependencies=[
     Depends(get_system_status),
-    Depends(get_system_controller)
+    Depends(get_system_controller),
+    Depends(get_schedule_database)
 ])
 
 app.include_router(scheduler.router)
