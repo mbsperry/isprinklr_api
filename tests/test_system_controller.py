@@ -37,9 +37,9 @@ def mock_system_status(mocker):
 @pytest.fixture
 def mock_system_controller(mock_system_status, mocker):
     # Mock hardware interactions
-    mocker.patch('isprinklr.system_controller.hunterserial.test_awake', return_value=True)
-    mocker.patch('isprinklr.system_controller.hunterserial.start_zone', return_value=True)
-    mocker.patch('isprinklr.system_controller.hunterserial.stop_zone', return_value=True)
+    mocker.patch('isprinklr.system_controller.esp_controller.test_awake', return_value=True)
+    mocker.patch('isprinklr.system_controller.esp_controller.start_zone', return_value=True)
+    mocker.patch('isprinklr.system_controller.esp_controller.stop_zone', return_value=True)
     
     # Create controller with our mock status
     mocker.patch('isprinklr.system_controller.system_status', mock_system_status)
@@ -99,9 +99,9 @@ async def test_zone_timer_auto_stop(mock_system_controller):
     
     # Mock both sleep and hardware interactions
     with patch('isprinklr.system_controller.asyncio.sleep', new=mock_sleep), \
-         patch('isprinklr.system_controller.hunterserial.test_awake', return_value=True), \
-         patch('isprinklr.system_controller.hunterserial.start_zone', return_value=True), \
-         patch('isprinklr.system_controller.hunterserial.stop_zone', return_value=True):
+         patch('isprinklr.system_controller.esp_controller.test_awake', return_value=True), \
+         patch('isprinklr.system_controller.esp_controller.start_zone', return_value=True), \
+         patch('isprinklr.system_controller.esp_controller.stop_zone', return_value=True):
         
         # Start a sprinkler with a 5-minute duration
         sprinkler: SprinklerCommand = {"zone": 1, "duration": 300}

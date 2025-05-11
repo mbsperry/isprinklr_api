@@ -1,7 +1,7 @@
 import logging, asyncio
 from typing import Optional, List, Dict
 
-import isprinklr.sprinklr_serial as hunterserial
+import isprinklr.esp_controller as esp_controller
 from .schemas import SprinklerCommand
 from isprinklr.system_status import system_status
 
@@ -25,28 +25,28 @@ class SystemController:
             raise
 
     def check_hunter_connection(self) -> bool:
-        """Check if the Hunter controller hardware is responding.
+        """Check if the ESP controller hardware is responding.
         
         Returns:
             bool: True if connected, raises exception otherwise
             
         Raises:
-            Exception: If hardware is not responding or serial error occurs
+            Exception: If hardware is not responding or connection error occurs
         """
         try:
-            if (hunterserial.test_awake()):
-                logger.debug('Arduino connected')
+            if (esp_controller.test_awake()):
+                logger.debug('ESP controller connected')
                 # If the system was previously in an error state, clear the status message
                 if system_status.get_status()["systemStatus"] == "error":
                     system_status.update_status("inactive", None, None)
                 return True
             else:
-                logger.error('Arduino not responding')
-                system_status.update_status("error", "Arduino not responding", None)
-                raise Exception("I/O: Arduino not responding")
+                logger.error('ESP controller not responding')
+                system_status.update_status("error", "ESP controller not responding", None)
+                raise Exception("I/O: ESP controller not responding")
         except Exception as exc:
             logger.error(f"Caught error {str(exc)}")
-            system_status.update_status("error", "Serial Port error", None)
+            system_status.update_status("error", "ESP Controller error", None)
             raise
 
     async def start_sprinkler(self, sprinkler: SprinklerCommand) -> bool:
@@ -71,7 +71,7 @@ class SystemController:
             try:
                 # Convert seconds to minutes for the hardware interface
                 duration_minutes = int(sprinkler['duration'] // 60)
-                if (hunterserial.start_zone(sprinkler['zone'], duration_minutes)):
+                if (esp_controller.start_zone(sprinkler['zone'], duration_minutes)):
                     logger.debug(f"Started zone {sprinkler['zone']} for {sprinkler['duration']} seconds: success")
                     system_status.update_status("active", None, sprinkler['zone'], sprinkler['duration'])
                     system_status.last_zone_run = sprinkler['zone']
@@ -84,7 +84,7 @@ class SystemController:
                     system_status.update_status("error", "Command Failed", None)
                     raise IOError("Command Failed")
             except IOError as exc:
-                system_status.update_status("error", "Serial Port error", None)
+                system_status.update_status("error", "ESP Controller error", None)
                 raise
         else:
             logger.error(f"Failed to start zone {sprinkler['zone']}, system already active")
@@ -114,7 +114,7 @@ class SystemController:
             # Only check connection and stop hardware if a zone is active
             if system_status.active_zone:
                 self.check_hunter_connection()
-                if (hunterserial.stop_zone(system_status.active_zone)):
+                if (esp_controller.stop_zone(system_status.active_zone)):
                     logger.debug(f"Stopped zone {system_status.active_zone}")
                     # Cancel any running timer
                     if self._timer_task and not self._timer_task.done():
@@ -136,7 +136,7 @@ class SystemController:
                 return True
 
         except IOError as exc:
-            system_status.update_status("error", "Serial Port error", None)
+            system_status.update_status("error", "ESP Controller error", None)
             raise
         except Exception as exc:
             if system_status.active_zone:
