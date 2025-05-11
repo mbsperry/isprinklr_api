@@ -1,0 +1,429 @@
+{
+    "api_endpoints": {
+        "system": {
+            "GET /api/system/status": {
+                "success_code": 200,
+                "success_example": {
+                    "systemStatus": "active",
+                    "message": null,
+                    "active_zone": 1,
+                    "duration": 300
+                },
+                "errors": {
+                    "500": {
+                        "detail": [
+                            "Failed to get system status, see logs for details"
+                        ]
+                    }
+                }
+            },
+            "GET /api/system/last-sprinkler-run": {
+                "success_code": 200,
+                "success_example": {
+                    "zone": 1,
+                    "timestamp": 1706914800.123
+                },
+                "errors": {
+                    "500": {
+                        "detail": [
+                            "Failed to get last zone run status, see logs for details"
+                        ]
+                    }
+                }
+            },
+            "GET /api/system/last-schedule-run": {
+                "success_code": 200,
+                "success_example": {
+                    "name": "Evening Schedule",
+                    "timestamp": 1706914800.123,
+                    "message": "success"
+                },
+                "errors": {
+                    "500": {
+                        "detail": [
+                            "Failed to get last schedule run status, see logs for details"
+                        ]
+                    }
+                }
+            }
+        },
+        "sprinklers": {
+            "GET /api/sprinklers": {
+                "success_code": 200,
+                "success_example": [
+                    {
+                        "zone": 1,
+                        "name": "Front Lawn"
+                    },
+                    {
+                        "zone": 2,
+                        "name": "Back Lawn"
+                    },
+                    {
+                        "zone": 3,
+                        "name": "Garden"
+                    }
+                ],
+                "errors": {
+                    "500": {
+                        "detail": [
+                            "Failed to load sprinklers data, see logs for details"
+                        ]
+                    }
+                }
+            },
+            "PUT /api/sprinklers": {
+                "success_code": 200,
+                "success_example": {
+                    "message": "Success",
+                    "zones": [
+                        {
+                            "zone": 1,
+                            "name": "Front Lawn"
+                        },
+                        {
+                            "zone": 2,
+                            "name": "Back Lawn"
+                        },
+                        {
+                            "zone": 3,
+                            "name": "Garden"
+                        }
+                    ]
+                },
+                "errors": {
+                    "400": {
+                        "detail": [
+                            "Failed to update sprinklers, invalid data: Duplicate zone numbers"
+                        ]
+                    },
+                    "500": {
+                        "detail": [
+                            "Failed to update sprinklers, see logs for details"
+                        ]
+                    }
+                }
+            },
+            "POST /api/sprinklers/start": {
+                "success_code": 200,
+                "success_example": {
+                    "message": "Zone 1 started"
+                },
+                "errors": {
+                    "400": {
+                        "detail": [
+                            "Zone 1 not found"
+                        ]
+                    },
+                    "409": {
+                        "detail": [
+                            "Failed to start zone 2, system already active. Active zone: 1"
+                        ]
+                    },
+                    "500": {
+                        "detail": [
+                            "Unexpected error starting sprinkler: see logs for details"
+                        ]
+                    },
+                    "503": {
+                        "detail": [
+                            "Hardware communication error: Command Failed"
+                        ]
+                    }
+                }
+            },
+            "POST /api/sprinklers/stop": {
+                "success_code": 200,
+                "success_example": {
+                    "message": "System stopped"
+                },
+                "errors": {
+                    "500": {
+                        "detail": [
+                            "Failed to stop system, see logs for details"
+                        ]
+                    }
+                }
+            }
+        },
+        "scheduler": {
+            "GET /api/scheduler/schedules": {
+                "success_code": 200,
+                "success_example": [
+                    {
+                        "schedule_name": "Evening Schedule",
+                        "schedule_items": [
+                            {
+                                "zone": 1,
+                                "day": "M",
+                                "duration": 300
+                            }
+                        ]
+                    }, 
+                    {
+                        "schedule_name": "Morning Schedule",
+                        "schedule_items": [
+                            {
+                                "zone": 2,
+                                "day": "T",
+                                "duration": 300
+                            }
+                        ]
+                    }
+                ]
+            },
+            "GET /api/scheduler/schedule/{schedule_name}": {
+                "success_code": 200,
+                "success_example": {
+                    "schedule_name": "Evening Schedule",
+                    "schedule_items": [
+                        {
+                            "zone": 1,
+                            "day": "M",
+                            "duration": 300
+                        }
+                    ]
+                },
+                "errors": {
+                    "404": {
+                        "detail": [
+                            "Schedule 'Evening Schedule' not found"
+                        ]
+                    }
+                }
+            },
+            "POST /api/scheduler/schedule": {
+                "success_code": 200,
+                "success_example": {
+                    "message": "Success",
+                    "schedule": {
+                        "schedule_name": "New Schedule",
+                        "schedule_items": []
+                    }
+                },
+                "errors": {
+                    "400": {
+                        "detail": [
+                            "Invalid schedule data: Duplicate schedule name"
+                        ]
+                    },
+                    "500": {
+                        "detail": [
+                            "Internal server error"
+                        ]
+                    }
+                }
+            },
+            "PUT /api/scheduler/schedule": {
+                "success_code": 200,
+                "success_example": {
+                    "message": "Success",
+                    "schedule": {
+                        "schedule_name": "Updated Schedule",
+                        "schedule_items": []
+                    }
+                },
+                "errors": {
+                    "400": {
+                        "detail": [
+                            "Invalid schedule data"
+                        ]
+                    },
+                    "500": {
+                        "detail": [
+                            "Internal server error"
+                        ]
+                    }
+                }
+            },
+            "DELETE /api/scheduler/schedule/{schedule_name}": {
+                "success_code": 200,
+                "success_example": {
+                    "message": "Success"
+                },
+                "errors": {
+                    "404": {
+                        "detail": [
+                            "Schedule not found"
+                        ]
+                    },
+                    "500": {
+                        "detail": [
+                            "Internal server error"
+                        ]
+                    }
+                }
+            },
+            "GET /api/scheduler/active": {
+                "success_code": 200,
+                "success_example": {
+                    "schedule_name": "Evening Schedule",
+                    "schedule_items": [
+                        {
+                            "zone": 1,
+                            "day": "M",
+                            "duration": 300
+                        }
+                    ]
+                },
+                "errors": {
+                    "404": {
+                        "detail": [
+                            "No active schedule set"
+                        ]
+                    }
+                }
+            },
+            "PUT /api/scheduler/active/{schedule_name}": {
+                "success_code": 200,
+                "success_example": {
+                    "message": "Success",
+                    "active_schedule": {
+                        "schedule_name": "Evening Schedule",
+                        "schedule_items": [
+                            {
+                                "zone": 1,
+                                "day": "M",
+                                "duration": 300
+                            }
+                        ]
+                    }
+                },
+                "errors": {
+                    "404": {
+                        "detail": [
+                            "Schedule 'Evening Schedule' not found"
+                        ]
+                    },
+                    "500": {
+                        "detail": [
+                            "Internal server error"
+                        ]
+                    }
+                }
+            },
+            "GET /api/scheduler/on_off": {
+                "success_code": 200,
+                "success_example": {
+                    "schedule_on_off": true
+                }
+            },
+            "PUT /api/scheduler/on_off": {
+                "success_code": 200,
+                "success_example": {
+                    "schedule_on_off": true
+                },
+                "errors": {
+                    "500": {
+                        "detail": [
+                            "Internal server error"
+                        ]
+                    }
+                }
+            },
+            "POST /api/scheduler/active/run": {
+                "success_code": 200,
+                "success_example": {
+                    "message": "Started running active schedule",
+                    "zones": [
+                        {
+                            "zone": 1,
+                            "duration": 300
+                        }
+                    ]
+                },
+                "errors": {
+                    "404": {
+                        "detail": [
+                            "No active schedule set"
+                        ]
+                    },
+                    "409": {
+                        "detail": [
+                            "System is already running zone 1"
+                        ]
+                    },
+                    "500": {
+                        "detail": [
+                            "Internal server error"
+                        ]
+                    }
+                }
+            },
+            "POST /api/scheduler/schedule/{schedule_name}/run": {
+                "success_code": 200,
+                "success_example": {
+                    "message": "Started running schedule",
+                    "zones": [
+                        {
+                            "zone": 1,
+                            "duration": 300
+                        }
+                    ]
+                },
+                "errors": {
+                    "404": {
+                        "detail": [
+                            "Schedule not found"
+                        ]
+                    },
+                    "409": {
+                        "detail": [
+                            "System is already running zone 1"
+                        ]
+                    },
+                    "500": {
+                        "detail": [
+                            "Internal server error"
+                        ]
+                    }
+                }
+            }
+        },
+        "logs": {
+            "GET /api/logs": {
+                "success_code": 200,
+                "success_example": [
+                    "2024-02-02 21:45:00 sprinkler_service INFO: Started zone 1"
+                ],
+                "errors": {
+                    "400": {
+                        "detail": [
+                            "Invalid number of lines"
+                        ]
+                    },
+                    "404": {
+                        "detail": [
+                            "Log file not found"
+                        ]
+                    },
+                    "500": {
+                        "detail": [
+                            "An error occurred: Permission denied"
+                        ]
+                    }
+                }
+            },
+            "GET /api/logs/module_list": {
+                "success_code": 200,
+                "success_example": [
+                    "sprinkler_service",
+                    "system_controller",
+                    "scheduler"
+                ],
+                "errors": {
+                    "404": {
+                        "detail": [
+                            "Log file not found"
+                        ]
+                    },
+                    "500": {
+                        "detail": [
+                            "An error occurred: Permission denied"
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}

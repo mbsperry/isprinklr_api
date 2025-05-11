@@ -67,7 +67,11 @@ Returns:
 * Dictionary containing success message confirming the zone was started
 
 Raises:
-* HTTPException: If the sprinkler cannot be started due to invalid parameters or system error
+* HTTPException:
+  * 400: If zone number is invalid or not found
+  * 409: If system is already running another zone
+  * 503: If hardware communication fails
+  * 500: For other unexpected errors
     """
     logger.debug(f'Received: {sprinkler}')
     try:
@@ -76,9 +80,15 @@ Raises:
     except ValueError as exc:
         logger.error(f"Failed to start sprinkler: {exc}")
         raise HTTPException(status_code=400, detail=str(exc))
+    except IOError as exc:
+        logger.error(f"Hardware communication error: {exc}")
+        raise HTTPException(status_code=503, detail=f"Hardware communication error: {str(exc)}")
     except Exception as exc:
-        logger.error(f"Failed to start sprinkler: {exc}")
-        raise HTTPException(status_code=500, detail="Failed to start sprinkler, see logs for details")
+        if "system already active" in str(exc).lower():
+            logger.error(f"System busy: {exc}")
+            raise HTTPException(status_code=409, detail=str(exc))
+        logger.error(f"Unexpected error starting sprinkler: {exc}")
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(exc)}")
 
 @router.post("/stop")
 async def stop_system():

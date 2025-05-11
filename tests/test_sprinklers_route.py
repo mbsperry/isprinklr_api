@@ -70,8 +70,8 @@ def test_start_sprinkler_while_running(mocker):
                 side_effect=Exception("Failed to start sprinkler, system already active. Active zone: 2"))
     sprinkler: SprinklerCommand = {"zone": 1, "duration": 60}  # 1 minute in seconds
     response = client.post("/api/sprinklers/start", json=sprinkler)
-    assert response.status_code == 500
-    assert response.json() == {"detail": "Failed to start sprinkler, see logs for details"}
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Failed to start sprinkler, system already active. Active zone: 2"}
 
 def test_stop_system(mocker):
     mocker.patch('isprinklr.routers.sprinklers.system_controller.stop_system', return_value=True)
