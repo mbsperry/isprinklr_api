@@ -43,7 +43,14 @@ app = FastAPI(dependencies=[
 # Allow both development (port 3000) and production (port 80) origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[f"http://{DOMAIN}:3000", f"http://{DOMAIN}:80", f"http://{DOMAIN}"],  # Frontend origins
+    allow_origins=[
+        f"http://{DOMAIN}:3000", 
+        f"http://{DOMAIN}:80", 
+        f"http://{DOMAIN}",
+        "http://localhost:3000",
+        "http://localhost:80",
+        "http://localhost"
+    ],  # Frontend origins
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],  # Allow all headers
