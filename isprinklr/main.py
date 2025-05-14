@@ -1,6 +1,10 @@
 import os, logging
 from logging.handlers import RotatingFileHandler
 from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
+
+# Import DOMAIN from system_status
+from isprinklr.system_status import DOMAIN
 
 from isprinklr.paths import logs_path, data_path, config_path
 
@@ -28,12 +32,22 @@ async def get_system_controller():
 async def get_schedule_database():
     return schedule_database
 
-# This API is designed to be run inside a secure local netork. As such, there is no need for authentication or CORS middleware
+# This API is designed to be run inside a secure local network, but we need CORS for browser access
 app = FastAPI(dependencies=[
     Depends(get_system_status),
     Depends(get_system_controller),
     Depends(get_schedule_database)
 ])
+
+# Add CORS middleware to allow requests from the frontend
+# Allow both development (port 3000) and production (port 80) origins
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[f"http://{DOMAIN}:3000", f"http://{DOMAIN}:80", f"http://{DOMAIN}"],  # Frontend origins
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["*"],  # Allow all headers
+)
 
 app.include_router(scheduler.router)
 app.include_router(system.router)
