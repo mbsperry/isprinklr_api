@@ -34,16 +34,20 @@ class SystemController:
             Exception: If hardware is not responding or connection error occurs
         """
         try:
-            if (esp_controller.test_awake()):
-                logger.debug('ESP controller connected')
-                # If the system was previously in an error state, clear the status message
-                if system_status.get_status()["systemStatus"] == "error":
-                    system_status.update_status("inactive", None, None)
-                return True
-            else:
-                logger.error('ESP controller not responding')
-                system_status.update_status("error", "ESP controller not responding", None)
-                raise Exception("I/O: ESP controller not responding")
+            # test_awake now returns the full status data in normal mode, 
+            # or a minimal status dict in dummy mode
+            status_data = esp_controller.test_awake()
+            
+            # Store the status data in the system_status object
+            system_status.esp_status_data = status_data
+            
+            logger.debug('ESP controller connected')
+            logger.debug(f'ESP status data: {status_data}')
+            
+            # If the system was previously in an error state, clear the status message
+            if system_status.get_status()["systemStatus"] == "error":
+                system_status.update_status("inactive", None, None)
+            return True
         except Exception as exc:
             logger.error(f"Caught error {str(exc)}")
             system_status.update_status("error", "ESP Controller error", None)

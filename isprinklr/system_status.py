@@ -43,6 +43,7 @@ class SystemStatus:
         self._schedule_on_off: bool = False  # Initialize to False
         self._last_zone_run: Optional[Dict[str, Any]] = None
         self._last_schedule_run: Optional[Dict[str, Any]] = None
+        self._esp_status_data: Optional[Dict[str, Any]] = None
         
         # Initialize schedule_database with sprinklers
         schedule_database.set_sprinklers(self._sprinklers)
@@ -133,6 +134,24 @@ class SystemStatus:
         self._active_zone = active_zone
         self._end_time = time.time() + duration if status == "active" and duration is not None else None
 
+    @property
+    def esp_status_data(self) -> Optional[Dict[str, Any]]:
+        """Get the current ESP controller status data.
+        
+        Returns:
+            Optional[Dict[str, Any]]: The full ESP controller status data, or None if not available
+        """
+        return self._esp_status_data
+    
+    @esp_status_data.setter
+    def esp_status_data(self, data: Dict[str, Any]):
+        """Set the ESP controller status data.
+        
+        Args:
+            data (Dict[str, Any]): The ESP controller status data
+        """
+        self._esp_status_data = data
+    
     def get_status(self) -> dict:
         """
         Get the current system status.
@@ -143,18 +162,26 @@ class SystemStatus:
                 - message (Optional[str]): Current status message
                 - active_zone (Optional[int]): Currently active zone number
                 - duration (int): Remaining duration in seconds if active
+                - esp_status (Optional[Dict]): ESP controller detailed status information
         """
         duration = 0
         if self._status == "active" and self._end_time is not None:
             duration = int(max(0, self._end_time - time.time()))
 
         logger.debug(f"System status: {self._status}, message: {self._status_message}, active zone: {self._active_zone}, duration: {duration}")
-        return {
+        
+        status_data = {
             "systemStatus": self._status,
             "message": self._status_message,
             "active_zone": self._active_zone,
             "duration": duration
         }
+        
+        # Include ESP controller status if available
+        if self._esp_status_data:
+            status_data["esp_status"] = self._esp_status_data
+            
+        return status_data
     
     def update_sprinklers(self, sprinklers: List[SprinklerConfig]) -> List[SprinklerConfig]:
         """

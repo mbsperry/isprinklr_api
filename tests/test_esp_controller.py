@@ -99,7 +99,13 @@ def test_test_awake_success(mocker, mock_status_response):
     """Test a successful status check"""
     mocker.patch('requests.get', return_value=mock_status_response)
     result = esp_controller.test_awake()
-    assert result == True
+    # Now test_awake returns the full status data instead of just True
+    assert isinstance(result, dict)
+    assert "status" in result
+    assert result["status"] == "ok"
+    assert "uptime_ms" in result
+    assert "chip" in result
+    assert "network" in result
     requests.get.assert_called_once_with(f"{MOCK_BASE_URL}/api/status", timeout=5)
 
 def test_test_awake_error_status(mocker, mock_error_response):
@@ -122,7 +128,12 @@ def test_test_awake_dummy_mode(mocker):
     # Should not even try to make a request in dummy mode
     mock_get = mocker.patch('requests.get')
     result = esp_controller.test_awake()
-    assert result == True
+    # Should return a dummy status dictionary in dummy mode, not just True
+    assert isinstance(result, dict)
+    assert "status" in result
+    assert result["status"] == "ok"
+    assert "dummy_mode" in result
+    assert result["dummy_mode"] == True
     mock_get.assert_not_called()
 
 # Test cases for start_zone

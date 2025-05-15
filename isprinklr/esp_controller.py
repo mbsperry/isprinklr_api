@@ -25,13 +25,18 @@ def test_awake():
     """Check if the ESP controller is responding.
     
     Returns:
-        bool: True if connected, raises exception otherwise
+        dict: Full status data from the ESP controller if connected in normal mode
+        bool: True if connected in dummy mode
         
     Raises:
         Exception: If ESP controller is not responding or connection error occurs
     """
     if DUMMY_MODE:
-        return True
+        # In dummy mode, return a minimal mock status
+        return {
+            "status": "ok",
+            "dummy_mode": True
+        }
     
     try:
         # Try to get the status from the ESP controller
@@ -43,7 +48,7 @@ def test_awake():
         if response.status_code == 200:
             status_data = response.json()
             logger.debug(f"ESP controller status: {status_data}")
-            return True
+            return status_data
         else:
             logger.error(f"ESP controller returned error status: {response.status_code}")
             raise Exception(f"I/O: ESP controller returned error status: {response.status_code}")

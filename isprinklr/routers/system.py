@@ -52,7 +52,7 @@ Raises:
 
 @router.get("/status")
 async def get_status():
-    """Get the current system status including hardware connectivity check, active zones, remaining duration.
+    """Get the current system status including hardware connectivity check, active zones, and ESP32 controller details.
 
 Returns:
 * Dictionary containing:
@@ -60,6 +60,15 @@ Returns:
   * message (str | None): Status message or error description
   * active_zone (int | None): Currently active sprinkler zone
   * duration (int): Remaining duration in seconds for active zone, 0 if inactive
+  * esp_status (dict | None): Detailed ESP32 controller status if available, containing:
+    * status (str): Status of the ESP controller ("ok" or error state)
+    * uptime_ms (int): Controller uptime in milliseconds
+    * chip (dict): Chip information including model, revision, cores
+    * memory (dict): Memory usage information including free heap space
+    * network (dict): Network configuration including IP, connection type, MAC
+    * reset_reason (str): Last reset reason
+    * idf_version (str): ESP-IDF version
+    * task (dict): Task-related information
 
 Raises:
 * HTTPException: If the system status cannot be retrieved
