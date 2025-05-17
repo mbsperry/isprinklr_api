@@ -44,6 +44,96 @@
           "duration": 60
         }
       ]
+    },
+    {
+      "schedule_name": "Summer",
+      "schedule_items": [
+        {
+          "zone": 1,
+          "day": "NONE",
+          "duration": 300
+        },
+        {
+          "zone": 2,
+          "day": "NONE",
+          "duration": 300
+        },
+        {
+          "zone": 3,
+          "day": "NONE",
+          "duration": 300
+        },
+        {
+          "zone": 4,
+          "day": "NONE",
+          "duration": 300
+        },
+        {
+          "zone": 5,
+          "day": "NONE",
+          "duration": 300
+        },
+        {
+          "zone": 6,
+          "day": "NONE",
+          "duration": 300
+        },
+        {
+          "zone": 7,
+          "day": "NONE",
+          "duration": 300
+        },
+        {
+          "zone": 8,
+          "day": "NONE",
+          "duration": 300
+        }
+      ]
+    },
+    {
+      "schedule_name": "Winter",
+      "schedule_items": [
+        {
+          "zone": 1,
+          "day": "NONE",
+          "duration": 300
+        },
+        {
+          "zone": 2,
+          "day": "NONE",
+          "duration": 300
+        },
+        {
+          "zone": 3,
+          "day": "NONE",
+          "duration": 300
+        },
+        {
+          "zone": 4,
+          "day": "NONE",
+          "duration": 300
+        },
+        {
+          "zone": 5,
+          "day": "NONE",
+          "duration": 300
+        },
+        {
+          "zone": 6,
+          "day": "NONE",
+          "duration": 300
+        },
+        {
+          "zone": 7,
+          "day": "NONE",
+          "duration": 300
+        },
+        {
+          "zone": 8,
+          "day": "NONE",
+          "duration": 300
+        }
+      ]
     }
   ],
   "active_schedule": "Default Schedule"
