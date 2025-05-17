@@ -1,8 +1,11 @@
 import logging
+import json
 from fastapi import APIRouter, HTTPException
 
 from isprinklr.system_status import system_status
 from isprinklr.system_controller import system_controller
+from isprinklr.schemas import ApiConfig
+from isprinklr.paths import config_path
 
 router = APIRouter(
     prefix="/api/system",
@@ -50,6 +53,42 @@ Raises:
         logger.error(f"Failed to get last schedule run status: {exc}")
         raise HTTPException(status_code=500, detail="Failed to get last schedule run status, see logs for details")
 
+def get_api_config():
+    """Read the current API configuration from api.conf
+    
+    Returns:
+        dict: The current API configuration
+        
+    Raises:
+        Exception: If the configuration file cannot be read
+    """
+    try:
+        with open(f"{config_path}/api.conf", "r") as f:
+            return json.load(f)
+    except Exception as exc:
+        logger.error(f"Failed to read API configuration: {exc}")
+        raise Exception(f"Failed to read API configuration: {exc}")
+
+def update_api_config(config: dict):
+    """Update the API configuration in api.conf
+    
+    Args:
+        config (dict): The new API configuration
+        
+    Returns:
+        dict: The updated API configuration
+        
+    Raises:
+        Exception: If the configuration file cannot be written
+    """
+    try:
+        with open(f"{config_path}/api.conf", "w") as f:
+            json.dump(config, f)
+        return config
+    except Exception as exc:
+        logger.error(f"Failed to write API configuration: {exc}")
+        raise Exception(f"Failed to write API configuration: {exc}")
+
 @router.get("/status")
 async def get_status():
     """Get the current system status including hardware connectivity check, active zones, and ESP32 controller details.
@@ -81,3 +120,55 @@ Raises:
     except Exception as exc:
         logger.error(f"Failed to get system status: {exc}")
         raise HTTPException(status_code=500, detail="Failed to get system status, see logs for details")
+
+@router.get("/config")
+async def get_config():
+    """Get the current API configuration
+    
+    Returns:
+        dict: The current API configuration
+        
+    Raises:
+        HTTPException: If the configuration cannot be retrieved
+    """
+    try:
+        return get_api_config()
+    except Exception as exc:
+        logger.error(f"Failed to get API configuration: {exc}")
+        raise HTTPException(status_code=500, detail="Failed to get API configuration, see logs for details")
+
+@router.put("/config")
+async def update_config(config: ApiConfig):
+    """Update the API configuration
+    
+    Args:
+        config (ApiConfig): The new API configuration
+        
+    Returns:
+        dict: The updated API configuration
+        
+    Raises:
+        HTTPException: If the configuration cannot be updated
+    """
+    try:
+        # Convert the Pydantic model to a dict - the validators will have already run
+        config_dict = config.model_dump()
+        
+        # Update the configuration
+        updated_config = update_api_config(config_dict)
+        
+        # Update system status with new settings if applicable
+        if 'schedule_on_off' in config_dict:
+            schedule_on_off = config_dict['schedule_on_off'].lower() == "true"
+            system_status.schedule_on_off = schedule_on_off
+            logger.debug(f"Updated schedule_on_off to {schedule_on_off}")
+        
+        # Return the updated configuration
+        return updated_config
+    except ValueError as exc:
+        # This captures validation errors from Pydantic
+        logger.error(f"Validation error in API configuration: {exc}")
+        raise HTTPException(status_code=400, detail=f"Invalid configuration: {str(exc)}")
+    except Exception as exc:
+        logger.error(f"Failed to update API configuration: {exc}")
+        raise HTTPException(status_code=500, detail=f"Failed to update API configuration: {str(exc)}")

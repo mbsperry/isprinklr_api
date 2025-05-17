@@ -26,16 +26,41 @@ def test_awake():
     
     Returns:
         dict: Full status data from the ESP controller if connected in normal mode
-        bool: True if connected in dummy mode
+              or a realistic mock response in dummy mode
         
     Raises:
         Exception: If ESP controller is not responding or connection error occurs
     """
     if DUMMY_MODE:
-        # In dummy mode, return a minimal mock status
+        # In dummy mode, return example values from documentation
         return {
             "status": "ok",
-            "dummy_mode": True
+            "dummy_mode": True,
+            "uptime_ms": 123456,
+            "chip": {
+                "model": "ESP32-S3",
+                "revision": 1,
+                "cores": 2
+            },
+            "idf_version": "4.4.1",
+            "reset_reason": "Power on",
+            "memory": {
+                "free_heap": 234567,
+                "min_free_heap": 123456
+            },
+            "network": {
+                "connected": True,
+                "type": "Ethernet",
+                "ip": "192.168.1.100",
+                "mac": "A1:B2:C3:D4:E5:F6",
+                "gateway": "192.168.1.1",
+                "subnet": "255.255.255.0",
+                "speed": "100 Mbps",
+                "duplex": "Full"
+            },
+            "task": {
+                "stack_hwm": 8192
+            }
         }
     
     try:
@@ -70,6 +95,8 @@ def start_zone(zone, duration_minutes):
         IOError: If the command fails
     """
     if DUMMY_MODE:
+        logger.debug(f"Dummy mode: Starting zone {zone} for {duration_minutes} minutes")
+        # In dummy mode, log the action and return success
         return True
     
     try:
@@ -120,6 +147,8 @@ def stop_zone(zone):
         IOError: If the command fails
     """
     if DUMMY_MODE:
+        logger.debug(f"Dummy mode: Stopping zone {zone}")
+        # In dummy mode, log the action and return success
         return True
     
     try:

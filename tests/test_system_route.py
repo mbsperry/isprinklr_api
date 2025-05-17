@@ -120,3 +120,60 @@ def test_get_status():
   assert "network" in response_data["esp_status"]
   assert "connected" in response_data["esp_status"]["network"]
   assert response_data["esp_status"]["network"]["connected"] == True
+
+def test_get_config(monkeypatch):
+    # Mock the get_api_config function to return test data
+    mock_config = {
+        "ESP_controller_IP": "192.168.88.24", 
+        "domain": "127.0.0.1", 
+        "dummy_mode": "True", 
+        "schedule_on_off": "True", 
+        "log_level": "DEBUG"
+    }
+    
+    with mock.patch('isprinklr.routers.system.get_api_config', return_value=mock_config):
+        response = client.get("/api/system/config")
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert data == mock_config
+        assert "ESP_controller_IP" in data
+        assert "domain" in data
+        assert "dummy_mode" in data
+        assert "schedule_on_off" in data
+        assert "log_level" in data
+
+def test_update_config(monkeypatch):
+    # Test data to send
+    new_config = {
+        "ESP_controller_IP": "192.168.88.25", 
+        "domain": "localhost", 
+        "dummy_mode": "False", 
+        "schedule_on_off": "False", 
+        "log_level": "INFO"
+    }
+    
+    # Save original schedule_on_off value to restore after test
+    original_schedule_on_off = system_status.schedule_on_off
+    
+    try:
+        # Mock update_api_config to return the input and avoid file operations
+        with mock.patch('isprinklr.routers.system.update_api_config', return_value=new_config):
+            response = client.put("/api/system/config", json=new_config)
+            
+            assert response.status_code == 200
+            data = response.json()
+            
+            assert data == new_config
+            assert data["ESP_controller_IP"] == "192.168.88.25"
+            assert data["domain"] == "localhost"
+            assert data["dummy_mode"] == "False"
+            assert data["schedule_on_off"] == "False"
+            assert data["log_level"] == "INFO"
+            
+            # Check that schedule_on_off was actually updated in the system_status
+            assert system_status.schedule_on_off is False
+    finally:
+        # Restore original value
+        system_status._schedule_on_off = original_schedule_on_off
