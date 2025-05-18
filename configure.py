@@ -3,14 +3,14 @@ CLI configuration tool for the iSprinklr API.
 
 This script provides commands to configure essential settings for the iSprinklr system,
 including API settings and sprinkler zone configurations. It can be run from the command
-line to set up or update API configuration and sprinkler zone definitions.
+line to set up or update API configuration (including domain, ESP controller IP, dummy mode,
+schedule settings, log level, and CORS security settings) and sprinkler zone definitions.
 """
 
 import typer
 import json
 import os
-import sys
-from typing import List, Optional
+from typing import List
 
 try:
     from isprinklr.paths import config_path, data_path
@@ -32,7 +32,7 @@ def config_api():
     Reads existing settings if present, then prompts the user for each configuration
     value. Default values are provided based on existing settings or sensible defaults.
     Settings include domain, ESP controller IP, dummy mode status, schedule status, 
-    and log level.
+    log level, and CORS security settings.
     
     Raises:
         typer.Exit: If there is an error writing the configuration file.
@@ -81,6 +81,11 @@ def config_api():
     default_log_level = current_config.get("log_level", "INFO")
     log_level = typer.prompt(f"Log Level (DEBUG, INFO, WARNING, ERROR, CRITICAL, default: {default_log_level})", default=default_log_level)
     current_config["log_level"] = log_level.upper()
+
+    default_use_strict_cors = current_config.get("USE_STRICT_CORS", False)
+    use_strict_cors_str = typer.prompt(f"Use Strict CORS (True/False, default: {default_use_strict_cors})", default=str(default_use_strict_cors))
+    use_strict_cors = use_strict_cors_str.lower() in ["true", "yes", "on", "1"]
+    current_config["USE_STRICT_CORS"] = use_strict_cors
 
     if not os.path.exists(config_path):
         os.makedirs(config_path)

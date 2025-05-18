@@ -38,3 +38,5 @@ TODO:
 [X] Switch away from PANDAS, I don't need that complexity. 
 [ ] Re-evaluate other libraries to make sure they are all needed.
 [X] Build script to set initial configuration. Now will boot up with an initial default config that can be changed via api endpoints.
+[ ] If there are no active schedules get active schedule returns an error.
+[ ] If the 

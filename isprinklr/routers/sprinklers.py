@@ -18,13 +18,9 @@ async def get_sprinklers():
     """Get all configured sprinkler zones and their names.
 
 Returns:
-* List[SprinklerConfig]: A list of sprinkler configurations containing zone numbers and names
-
-Raises:
-* HTTPException: If sprinkler data cannot be loaded
+* List[SprinklerConfig]: A list of sprinkler configurations containing zone numbers and names.
+  Returns an empty list if no sprinklers are configured.
     """
-    if not system_status.sprinklers:
-        raise HTTPException(status_code=500, detail="Failed to load sprinklers data, see logs for details")
     return system_status.sprinklers
 
 @router.put("/")
