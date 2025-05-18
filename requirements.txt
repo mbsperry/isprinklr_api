@@ -26,7 +26,6 @@ mdurl==0.1.2
 numpy==1.26.4
 orjson==3.10.3
 packaging==24.1
-pandas==2.0.2
 pluggy==1.5.0
 pydantic==2.7.1
 pydantic_core==2.18.2

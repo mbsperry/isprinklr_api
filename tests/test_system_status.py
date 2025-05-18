@@ -127,11 +127,19 @@ def test_duration_decreases_with_time(mock_system_status):
             status = mock_system_status.get_status()
             assert status["duration"] == 0
 
-def test_schedule_on_off(mock_system_status):
-    """Test schedule on/off functionality"""
+def test_schedule_on_off(mock_system_status): # mock_system_status is the singleton instance
+    """Test schedule on/off property setter and getter"""
+    # Test setting to False
+    mock_system_status.schedule_on_off = False
     assert mock_system_status.schedule_on_off == False
+
+    # Test setting to True
     mock_system_status.schedule_on_off = True
     assert mock_system_status.schedule_on_off == True
+
+    # Test setting back to False
+    mock_system_status.schedule_on_off = False
+    assert mock_system_status.schedule_on_off == False
 
 def test_last_zone_run(mock_system_status):
     """Test last_zone_run tracking"""

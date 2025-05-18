@@ -1,4 +1,4 @@
-import json, logging, time
+import json, logging, time, os # Added os
 from typing import Any, Optional, List, Dict
 
 from .paths import config_path, data_path
@@ -11,20 +11,77 @@ logger = logging.getLogger(__name__)
 # Systemwide ScheduleDatabase singleton
 schedule_database = ScheduleDatabase()
 
+# Default configurations used if api.conf is missing, malformed, or keys are absent
+DEFAULT_DOMAIN = "localhost"
+DEFAULT_SCHEDULE_ON_OFF = False # Default to schedules being off
+DEFAULT_LOG_LEVEL = "INFO"      # Default log level
+
+# Initialize global config variables with defaults.
+# These will be updated if api.conf is successfully read.
+DOMAIN = DEFAULT_DOMAIN
+SCHEDULE_ON_OFF = DEFAULT_SCHEDULE_ON_OFF
+LOG_LEVEL = DEFAULT_LOG_LEVEL
+
 try:
-    with open(config_path + "/api.conf", "r") as f:
+    api_conf_path = os.path.join(config_path, "api.conf")
+    # main.py attempts to create a default api.conf if it's missing.
+    # This block handles reading it, or falling back if it's still missing,
+    # malformed, or keys are absent.
+    with open(api_conf_path, "r") as f:
         config = json.load(f)
-        DOMAIN = config["domain"]
-        SCHEDULE_ON_OFF=config.get("schedule_on_off", False) 
-        if not isinstance(SCHEDULE_ON_OFF, bool):
-            SCHEDULE_ON_OFF = SCHEDULE_ON_OFF.lower() in ["true", "yes", "on"]
-        LOG_LEVEL=config.get("log_level", "ERROR")
-        logger.setLevel(getattr(logging, LOG_LEVEL, "ERROR"))
-        logger.debug("Starting API")
-        logger.debug(f"Run schedule is set to: {SCHEDULE_ON_OFF}")
-        logger.debug(f"Log level set to {LOG_LEVEL}")
-except Exception as e:
-    logger.critical(f"Failed to load api.conf: {e}")
+        
+        # Load DOMAIN, falling back to default if key is missing or value is empty
+        DOMAIN = config.get("domain", DEFAULT_DOMAIN)
+        if not DOMAIN: # Handles cases like "domain": "" or "domain": null
+            logger.warning(f"'domain' in '{api_conf_path}' is empty or null. Using default: '{DEFAULT_DOMAIN}'.")
+            DOMAIN = DEFAULT_DOMAIN
+            
+        # Load SCHEDULE_ON_OFF, handling boolean or string representations
+        raw_schedule_on_off = config.get("schedule_on_off", DEFAULT_SCHEDULE_ON_OFF)
+        if isinstance(raw_schedule_on_off, bool):
+            SCHEDULE_ON_OFF = raw_schedule_on_off
+        else: # Attempt to parse from string
+            SCHEDULE_ON_OFF = str(raw_schedule_on_off).lower() in ["true", "yes", "on"]
+            
+        # Load LOG_LEVEL, falling back to default if key is missing
+        LOG_LEVEL = config.get("log_level", DEFAULT_LOG_LEVEL).upper()
+
+except FileNotFoundError:
+    logger.warning(f"'{api_conf_path}' not found (or not created by main.py). "
+                   f"Using default configurations: DOMAIN='{DEFAULT_DOMAIN}', "
+                   f"SCHEDULE_ON_OFF={DEFAULT_SCHEDULE_ON_OFF}, LOG_LEVEL='{DEFAULT_LOG_LEVEL}'.")
+    # Globals DOMAIN, SCHEDULE_ON_OFF, LOG_LEVEL retain their pre-defined defaults
+except json.JSONDecodeError as e:
+    logger.error(f"Error decoding JSON from '{api_conf_path}': {e}. "
+                 f"Using default configurations.")
+    # Globals retain defaults
+except Exception as e: # Catch-all for other unexpected errors during config loading
+    logger.critical(f"Unexpected error loading '{api_conf_path}': {e}. "
+                    f"Using default configurations.")
+    # Globals retain defaults
+
+# Apply the determined log level to this module's logger
+# (Root logger level is set in main.py's basicConfig)
+try:
+    # Ensure LOG_LEVEL is a valid level string before setting
+    if LOG_LEVEL not in logging._nameToLevel:
+        invalid_level = LOG_LEVEL
+        LOG_LEVEL = DEFAULT_LOG_LEVEL # Fallback to a known good default
+        logger.error(f"Invalid LOG_LEVEL string '{invalid_level}' from config or default. "
+                     f"Defaulting logger level for '{__name__}' to '{LOG_LEVEL}'.")
+    logger.setLevel(getattr(logging, LOG_LEVEL))
+except AttributeError: # Should not happen if LOG_LEVEL is validated against _nameToLevel
+    # This is an extra safeguard.
+    LOG_LEVEL = DEFAULT_LOG_LEVEL
+    logger.error(f"Failed to set log level with '{LOG_LEVEL}'. Defaulting to '{DEFAULT_LOG_LEVEL}'.")
+    logger.setLevel(getattr(logging, DEFAULT_LOG_LEVEL))
+
+
+# Log effective settings after attempting to load config
+logger.info(f"Effective API Domain for CORS: {DOMAIN}")
+logger.info(f"Effective initial Schedule ON/OFF state: {SCHEDULE_ON_OFF}")
+logger.info(f"Effective Log Level for '{__name__}' logger: {LOG_LEVEL}")
+
 
 class SystemStatus:
     """
@@ -40,7 +97,8 @@ class SystemStatus:
         self._active_zone: Optional[int] = None
         self._end_time: Optional[float] = None
         self._sprinklers: List[SprinklerConfig] = sprinkler_service.read_sprinklers(data_path)
-        self._schedule_on_off: bool = False  # Initialize to False
+        # Initialize _schedule_on_off from the globally determined SCHEDULE_ON_OFF value
+        self._schedule_on_off: bool = SCHEDULE_ON_OFF
         self._last_zone_run: Optional[Dict[str, Any]] = None
         self._last_schedule_run: Optional[Dict[str, Any]] = None
         self._esp_status_data: Optional[Dict[str, Any]] = None

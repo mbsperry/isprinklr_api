@@ -16,10 +16,25 @@ There are 3 components:
 
 ### Installation Steps
 1. Build and install iSprinklr_esp using PlatformIO with your preferred network configuration. The ESP32 will print out its IP address to the serial monitor when it connects to the network. Make note of this IP. 
-2. Git clone iSprinklr_api. Create a virtual environment and install requirements.txt using pip. Create config/api.conf following the example.conf file. Put the IP of the ESP32 in the config/api.conf file. Assuming iSprinklr_api and the iSprinklr_react frontend are run on the same server, put the domain name in api.conf. Run the API using `fastapi run main.py` from inside the isprinklr directory.
+2. Git clone iSprinklr_api. Create a virtual environment and install requirements.txt using pip. 
+   **Initial configuration can be performed using one of the following options:**
+   - **Option 1 (Recommended):** Run the interactive CLI configuration tool:  
+     `python configure.py`
+   - **Option 2:** Start the API, then use the web interface at `http://API_IP:8000/docs` to configure the system:
+     - Set system settings at:  
+       `http://API_IP:8000/docs#/system/update_config_api_system_config_put`
+     - Configure sprinkler zones at:  
+       `http://API_IP:8000/docs#/sprinklers/update_sprinklers_api_sprinklers__put`
+   After configuration, run the API using `fastapi run main.py` from inside the isprinklr directory.
 3. Optional: setup daemon to make sure isprinklr_api runs after restart, power outage, etc. 
 4. Git clone iSprinklr_react. Update src/config.js. Build and serve via nginx or node serve.
 5. If you want to use the scheduling feature you will need to setup a cron job to run the `scheduler.py` script daily.
 
 Credit:
 iSprinklr_esp relies on the HunterRoam library from ecodina (https://github.com/ecodina/hunter-wifi) to actually control the Hunter Pro-c.
+
+TODO:
+[ ] Allow renaming schedules. Is this better than just deleting schedules?
+[X] Switch away from PANDAS, I don't need that complexity. 
+[ ] Re-evaluate other libraries to make sure they are all needed.
+[X] Build script to set initial configuration. Now will boot up with an initial default config that can be changed via api endpoints.
