@@ -1,11 +1,9 @@
 import logging
-import json
 from fastapi import APIRouter, HTTPException
 
 from isprinklr.system_status import system_status
 from isprinklr.system_controller import system_controller
 from isprinklr.schemas import ApiConfig
-from isprinklr.paths import config_path
 
 router = APIRouter(
     prefix="/api/system",
@@ -53,41 +51,6 @@ Raises:
         logger.error(f"Failed to get last schedule run status: {exc}")
         raise HTTPException(status_code=500, detail="Failed to get last schedule run status, see logs for details")
 
-def get_api_config():
-    """Read the current API configuration from api.conf
-    
-    Returns:
-        dict: The current API configuration
-        
-    Raises:
-        Exception: If the configuration file cannot be read
-    """
-    try:
-        with open(f"{config_path}/api.conf", "r") as f:
-            return json.load(f)
-    except Exception as exc:
-        logger.error(f"Failed to read API configuration: {exc}")
-        raise Exception(f"Failed to read API configuration: {exc}")
-
-def update_api_config(config: dict):
-    """Update the API configuration in api.conf
-    
-    Args:
-        config (dict): The new API configuration
-        
-    Returns:
-        dict: The updated API configuration
-        
-    Raises:
-        Exception: If the configuration file cannot be written
-    """
-    try:
-        with open(f"{config_path}/api.conf", "w") as f:
-            json.dump(config, f)
-        return config
-    except Exception as exc:
-        logger.error(f"Failed to write API configuration: {exc}")
-        raise Exception(f"Failed to write API configuration: {exc}")
 
 @router.get("/status")
 async def get_status():
@@ -126,13 +89,19 @@ async def get_config():
     """Get the current API configuration
     
     Returns:
-        dict: The current API configuration
+        dict: The current API configuration with the following fields:
+            - ESP_controller_IP (str): IP address of ESP controller
+            - domain (str): Domain address for the API server
+            - dummy_mode (bool): Whether to run in dummy mode
+            - schedule_on_off (bool): Whether schedules are enabled
+            - log_level (str): Logging level
+            - USE_STRICT_CORS (bool): Whether to use strict CORS settings
         
     Raises:
         HTTPException: If the configuration cannot be retrieved
     """
     try:
-        return get_api_config()
+        return system_status.get_api_config()
     except Exception as exc:
         logger.error(f"Failed to get API configuration: {exc}")
         raise HTTPException(status_code=500, detail="Failed to get API configuration, see logs for details")
@@ -142,10 +111,21 @@ async def update_config(config: ApiConfig):
     """Update the API configuration
     
     Args:
-        config (ApiConfig): The new API configuration
+        config (ApiConfig): The new API configuration with the following fields:
+            - ESP_controller_IP (str): IP address of ESP controller
+            - domain (str): Domain address for the API server
+            - dummy_mode (bool): Whether to run in dummy mode
+            - schedule_on_off (bool): Whether schedules are enabled
+            - log_level (str): Logging level
+            - USE_STRICT_CORS (bool): Whether to use strict CORS settings
         
     Returns:
         dict: The updated API configuration
+        
+    Notes:
+        Changes to domain and USE_STRICT_CORS will be
+        saved to the configuration file but will not take effect
+        until the API is restarted.
         
     Raises:
         HTTPException: If the configuration cannot be updated
@@ -154,14 +134,7 @@ async def update_config(config: ApiConfig):
         # Convert the Pydantic model to a dict - the validators will have already run
         config_dict = config.model_dump()
         
-        # Update the configuration
-        updated_config = update_api_config(config_dict)
-        
-        # Update system status with new settings if applicable
-        if 'schedule_on_off' in config_dict:
-            schedule_on_off = config_dict['schedule_on_off'].lower() == "true"
-            system_status.schedule_on_off = schedule_on_off
-            logger.debug(f"Updated schedule_on_off to {schedule_on_off}")
+        updated_config = system_status.update_api_config(config_dict)
         
         # Return the updated configuration
         return updated_config

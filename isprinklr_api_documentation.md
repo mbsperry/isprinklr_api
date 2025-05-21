@@ -115,9 +115,10 @@ Get the current API configuration settings.
 {
   "ESP_controller_IP": "192.168.88.24",
   "domain": "127.0.0.1",
-  "dummy_mode": "True",
-  "schedule_on_off": "True",
-  "log_level": "DEBUG"
+  "dummy_mode": true,
+  "schedule_on_off": true,
+  "log_level": "DEBUG",
+  "USE_STRICT_CORS": false
 }
 ```
 
@@ -135,29 +136,35 @@ Update the API configuration settings.
 {
   "ESP_controller_IP": "192.168.88.24",
   "domain": "127.0.0.1",
-  "dummy_mode": "True",
-  "schedule_on_off": "True",
-  "log_level": "DEBUG"
+  "dummy_mode": true,
+  "schedule_on_off": true,
+  "log_level": "DEBUG",
+  "USE_STRICT_CORS": false
 }
 ```
 
 **Field Validation**:
 - `ESP_controller_IP`: Must be a valid IP address
 - `domain`: Domain address for the API server
-- `dummy_mode`: Must be either "True" or "False" (case insensitive)
-- `schedule_on_off`: Must be either "True" or "False" (case insensitive)
+- `dummy_mode`: Boolean value (true/false)
+- `schedule_on_off`: Boolean value (true/false)
 - `log_level`: Must be one of: "DEBUG", "INFO", "WARNING", "WARN", "ERROR", "CRITICAL", "FATAL" (case insensitive, stored as uppercase)
+- `USE_STRICT_CORS`: Boolean value (true/false)
 
 **Returns**:
 ```json
 {
   "ESP_controller_IP": "192.168.88.24",
   "domain": "127.0.0.1",
-  "dummy_mode": "True",
-  "schedule_on_off": "True",
-  "log_level": "DEBUG"
+  "dummy_mode": true,
+  "schedule_on_off": true,
+  "log_level": "DEBUG",
+  "USE_STRICT_CORS": false
 }
 ```
+
+**Important Note**:
+Changes to certain configuration parameters (`domain` and `USE_STRICT_CORS`) will be saved to the configuration file but will not affect the running application until the API server is restarted. This is because these values are used to configure the CORS middleware during application startup.
 
 **Possible Errors**:
 - `400 Bad Request`: "Invalid configuration: [validation error details]"

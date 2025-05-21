@@ -126,12 +126,13 @@ def test_get_config(monkeypatch):
     mock_config = {
         "ESP_controller_IP": "192.168.88.24", 
         "domain": "127.0.0.1", 
-        "dummy_mode": "True", 
-        "schedule_on_off": "True", 
-        "log_level": "DEBUG"
+        "dummy_mode": True, 
+        "schedule_on_off": True, 
+        "log_level": "DEBUG",
+        "USE_STRICT_CORS": False
     }
     
-    with mock.patch('isprinklr.routers.system.get_api_config', return_value=mock_config):
+    with mock.patch.object(system_status, 'get_api_config', return_value=mock_config):
         response = client.get("/api/system/config")
         
         assert response.status_code == 200
@@ -149,9 +150,10 @@ def test_update_config(monkeypatch):
     new_config = {
         "ESP_controller_IP": "192.168.88.25", 
         "domain": "localhost", 
-        "dummy_mode": "False", 
-        "schedule_on_off": "False", 
-        "log_level": "INFO"
+        "dummy_mode": False, 
+        "schedule_on_off": False, 
+        "log_level": "INFO",
+        "USE_STRICT_CORS": True
     }
     
     # Save original schedule_on_off value to restore after test
@@ -159,7 +161,7 @@ def test_update_config(monkeypatch):
     
     try:
         # Mock update_api_config to return the input and avoid file operations
-        with mock.patch('isprinklr.routers.system.update_api_config', return_value=new_config):
+        with mock.patch.object(system_status, 'update_api_config', return_value=new_config):
             response = client.put("/api/system/config", json=new_config)
             
             assert response.status_code == 200
@@ -168,9 +170,10 @@ def test_update_config(monkeypatch):
             assert data == new_config
             assert data["ESP_controller_IP"] == "192.168.88.25"
             assert data["domain"] == "localhost"
-            assert data["dummy_mode"] == "False"
-            assert data["schedule_on_off"] == "False"
+            assert data["dummy_mode"] is False
+            assert data["schedule_on_off"] is False
             assert data["log_level"] == "INFO"
+            assert data["USE_STRICT_CORS"] is True
             
             # Check that schedule_on_off was actually updated in the system_status
             assert system_status.schedule_on_off is False

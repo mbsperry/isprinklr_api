@@ -264,6 +264,76 @@ class SystemStatus:
         except Exception as e:
             logger.error(f"Failed to write sprinklers data: {e}")
             raise
+    
+    def get_api_config(self) -> dict:
+        """Read the current API configuration from api.conf
+        
+        Returns:
+            dict: The current API configuration
+            
+        Raises:
+            Exception: If the configuration file cannot be read
+        """
+        try:
+            with open(f"{config_path}/api.conf", "r") as f:
+                return json.load(f)
+        except Exception as exc:
+            logger.error(f"Failed to read API configuration: {exc}")
+            raise Exception(f"Failed to read API configuration: {exc}")
+
+    def update_api_config(self, config: dict) -> dict:
+        """Update the API configuration in api.conf
+        
+        Args:
+            config (dict): The new API configuration with fields like:
+                ESP_controller_IP, domain, dummy_mode, schedule_on_off, 
+                log_level, USE_STRICT_CORS
+            
+        Returns:
+            dict: The updated API configuration
+            
+        Notes:
+            Changes to domain and USE_STRICT_CORS will be
+            saved to the configuration file but will not take effect
+            until the API is restarted.
+            
+        Raises:
+            Exception: If the configuration file cannot be written
+        """
+        try:
+            # Write the configuration to file
+            with open(f"{config_path}/api.conf", "w") as f:
+                json.dump(config, f)
+            
+            # Update internal state and global variables
+            global DOMAIN, SCHEDULE_ON_OFF, LOG_LEVEL
+            
+            # Update schedule_on_off both in SystemStatus instance and global variable
+            if 'schedule_on_off' in config:
+                self._schedule_on_off = config['schedule_on_off']
+                SCHEDULE_ON_OFF = config['schedule_on_off']
+                logger.debug(f"Updated schedule_on_off to {config['schedule_on_off']}")
+            
+            # Update domain for CORS
+            if 'domain' in config:
+                DOMAIN = config['domain']
+                logger.debug(f"Updated DOMAIN to {config['domain']}")
+            
+            # Update log level
+            if 'log_level' in config:
+                new_log_level = config['log_level'].upper()
+                # Validate log level before setting
+                if new_log_level in logging._nameToLevel:
+                    LOG_LEVEL = new_log_level
+                    logger.setLevel(getattr(logging, LOG_LEVEL))
+                    logger.debug(f"Updated LOG_LEVEL to {LOG_LEVEL}")
+                else:
+                    logger.warning(f"Invalid log level: {new_log_level}, ignoring")
+            
+            return config
+        except Exception as exc:
+            logger.error(f"Failed to write API configuration: {exc}")
+            raise Exception(f"Failed to write API configuration: {exc}")
 
 # Create singleton instance
 system_status = SystemStatus()

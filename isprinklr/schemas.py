@@ -5,9 +5,10 @@ from typing import List, Optional, ClassVar
 class ApiConfig(BaseModel):
     ESP_controller_IP: str = Field(..., description="IP address of ESP controller")
     domain: str = Field(..., description="Domain address for the API server")
-    dummy_mode: str = Field(..., description="Whether to run in dummy mode (True/False)")
-    schedule_on_off: str = Field(..., description="Whether schedules are enabled (True/False)")
+    dummy_mode: bool = Field(..., description="Whether to run in dummy mode")
+    schedule_on_off: bool = Field(..., description="Whether schedules are enabled")
     log_level: str = Field(..., description="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
+    USE_STRICT_CORS: bool = Field(..., description="Whether to use strict CORS settings")
     
     @field_validator('ESP_controller_IP')
     @classmethod
@@ -19,12 +20,6 @@ class ApiConfig(BaseModel):
         except:
             raise ValueError('Invalid IP address format')
     
-    @field_validator('dummy_mode', 'schedule_on_off')
-    @classmethod
-    def validate_boolean_string(cls, v):
-        if v.lower() not in ['true', 'false']:
-            raise ValueError('Value must be either "True" or "False"')
-        return v
     
     @field_validator('log_level')
     @classmethod
