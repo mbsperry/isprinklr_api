@@ -118,7 +118,9 @@ Get the current API configuration settings.
   "dummy_mode": true,
   "schedule_on_off": true,
   "log_level": "DEBUG",
-  "USE_STRICT_CORS": false
+  "USE_STRICT_CORS": false,
+  "schedule_hour": 4,
+  "schedule_minute": 0
 }
 ```
 
@@ -139,7 +141,9 @@ Update the API configuration settings.
   "dummy_mode": true,
   "schedule_on_off": true,
   "log_level": "DEBUG",
-  "USE_STRICT_CORS": false
+  "USE_STRICT_CORS": false,
+  "schedule_hour": 4,
+  "schedule_minute": 0
 }
 ```
 
@@ -150,6 +154,8 @@ Update the API configuration settings.
 - `schedule_on_off`: Boolean value (true/false)
 - `log_level`: Must be one of: "DEBUG", "INFO", "WARNING", "WARN", "ERROR", "CRITICAL", "FATAL" (case insensitive, stored as uppercase)
 - `USE_STRICT_CORS`: Boolean value (true/false)
+- `schedule_hour`: Integer between 0 and 23 (default: 4)
+- `schedule_minute`: Integer between 0 and 59 (default: 0)
 
 **Returns**:
 ```json
@@ -159,7 +165,9 @@ Update the API configuration settings.
   "dummy_mode": true,
   "schedule_on_off": true,
   "log_level": "DEBUG",
-  "USE_STRICT_CORS": false
+  "USE_STRICT_CORS": false,
+  "schedule_hour": 4,
+  "schedule_minute": 0
 }
 ```
 

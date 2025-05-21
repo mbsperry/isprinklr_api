@@ -77,6 +77,30 @@ def config_api():
     schedule_on_off_str = typer.prompt(f"Schedule ON/OFF (True/False, default: {default_schedule_on_off})", default=str(default_schedule_on_off))
     schedule_on_off = schedule_on_off_str.lower() in ["true", "yes", "on", "1"]
     current_config["schedule_on_off"] = schedule_on_off
+    
+    default_schedule_hour = current_config.get("schedule_hour", 4)
+    schedule_hour_input = typer.prompt(f"Schedule Hour (0-23, default: {default_schedule_hour})", default=str(default_schedule_hour))
+    try:
+        schedule_hour = int(schedule_hour_input)
+        if not (0 <= schedule_hour <= 23):
+            typer.echo("Warning: Hour must be between 0 and 23. Using default value.", err=True)
+            schedule_hour = default_schedule_hour
+    except ValueError:
+        typer.echo("Warning: Invalid hour format. Using default value.", err=True)
+        schedule_hour = default_schedule_hour
+    current_config["schedule_hour"] = schedule_hour
+    
+    default_schedule_minute = current_config.get("schedule_minute", 0)
+    schedule_minute_input = typer.prompt(f"Schedule Minute (0-59, default: {default_schedule_minute})", default=str(default_schedule_minute))
+    try:
+        schedule_minute = int(schedule_minute_input)
+        if not (0 <= schedule_minute <= 59):
+            typer.echo("Warning: Minute must be between 0 and 59. Using default value.", err=True)
+            schedule_minute = default_schedule_minute
+    except ValueError:
+        typer.echo("Warning: Invalid minute format. Using default value.", err=True)
+        schedule_minute = default_schedule_minute
+    current_config["schedule_minute"] = schedule_minute
 
     default_log_level = current_config.get("log_level", "INFO")
     log_level = typer.prompt(f"Log Level (DEBUG, INFO, WARNING, ERROR, CRITICAL, default: {default_log_level})", default=default_log_level)

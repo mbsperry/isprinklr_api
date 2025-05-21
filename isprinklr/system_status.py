@@ -15,12 +15,16 @@ schedule_database = ScheduleDatabase()
 DEFAULT_DOMAIN = "localhost"
 DEFAULT_SCHEDULE_ON_OFF = False # Default to schedules being off
 DEFAULT_LOG_LEVEL = "INFO"      # Default log level
+DEFAULT_SCHEDULE_HOUR = 4       # Default to 4 AM
+DEFAULT_SCHEDULE_MINUTE = 0     # Default to 0 minutes
 
 # Initialize global config variables with defaults.
 # These will be updated if api.conf is successfully read.
 DOMAIN = DEFAULT_DOMAIN
 SCHEDULE_ON_OFF = DEFAULT_SCHEDULE_ON_OFF
 LOG_LEVEL = DEFAULT_LOG_LEVEL
+SCHEDULE_HOUR = DEFAULT_SCHEDULE_HOUR
+SCHEDULE_MINUTE = DEFAULT_SCHEDULE_MINUTE
 
 try:
     api_conf_path = os.path.join(config_path, "api.conf")
@@ -45,6 +49,24 @@ try:
             
         # Load LOG_LEVEL, falling back to default if key is missing
         LOG_LEVEL = config.get("log_level", DEFAULT_LOG_LEVEL).upper()
+        
+        # Load schedule timing with validation, falling back to defaults if not provided or invalid
+        schedule_hour = config.get("schedule_hour", DEFAULT_SCHEDULE_HOUR)
+        schedule_minute = config.get("schedule_minute", DEFAULT_SCHEDULE_MINUTE)
+        try:
+            if isinstance(schedule_hour, int) and 0 <= schedule_hour <= 23:
+                SCHEDULE_HOUR = schedule_hour
+            else:
+                logger.warning(f"Invalid schedule_hour in '{api_conf_path}': {schedule_hour}. Using default: {DEFAULT_SCHEDULE_HOUR}")
+                SCHEDULE_HOUR = DEFAULT_SCHEDULE_HOUR
+                
+            if isinstance(schedule_minute, int) and 0 <= schedule_minute <= 59:
+                SCHEDULE_MINUTE = schedule_minute
+            else:
+                logger.warning(f"Invalid schedule_minute in '{api_conf_path}': {schedule_minute}. Using default: {DEFAULT_SCHEDULE_MINUTE}")
+                SCHEDULE_MINUTE = DEFAULT_SCHEDULE_MINUTE
+        except Exception as e:
+            logger.warning(f"Error processing schedule timing from '{api_conf_path}': {e}. Using defaults.")
 
 except FileNotFoundError:
     logger.warning(f"'{api_conf_path}' not found (or not created by main.py). "
@@ -81,6 +103,7 @@ except AttributeError: # Should not happen if LOG_LEVEL is validated against _na
 logger.info(f"Effective API Domain for CORS: {DOMAIN}")
 logger.info(f"Effective initial Schedule ON/OFF state: {SCHEDULE_ON_OFF}")
 logger.info(f"Effective Log Level for '{__name__}' logger: {LOG_LEVEL}")
+logger.info(f"Effective schedule execution time: {SCHEDULE_HOUR:02d}:{SCHEDULE_MINUTE:02d}")
 
 
 class SystemStatus:
@@ -102,6 +125,10 @@ class SystemStatus:
         self._last_zone_run: Optional[Dict[str, Any]] = None
         self._last_schedule_run: Optional[Dict[str, Any]] = None
         self._esp_status_data: Optional[Dict[str, Any]] = None
+        
+        # Initialize schedule timing properties from global values
+        self._schedule_hour: int = SCHEDULE_HOUR
+        self._schedule_minute: int = SCHEDULE_MINUTE
         
         # Initialize schedule_database with sprinklers
         schedule_database.set_sprinklers(self._sprinklers)
@@ -168,6 +195,26 @@ class SystemStatus:
     @schedule_on_off.setter
     def schedule_on_off(self, value: bool):
         self._schedule_on_off = value
+        
+    @property
+    def schedule_hour(self) -> int:
+        return self._schedule_hour
+    
+    @schedule_hour.setter
+    def schedule_hour(self, value: int):
+        if not (0 <= value <= 23):
+            raise ValueError("Hour must be between 0 and 23")
+        self._schedule_hour = value
+        
+    @property
+    def schedule_minute(self) -> int:
+        return self._schedule_minute
+    
+    @schedule_minute.setter
+    def schedule_minute(self, value: int):
+        if not (0 <= value <= 59):
+            raise ValueError("Minute must be between 0 and 59")
+        self._schedule_minute = value
 
     @property
     def active_zone(self) -> Optional[int]:
@@ -313,6 +360,38 @@ class SystemStatus:
                 self._schedule_on_off = config['schedule_on_off']
                 SCHEDULE_ON_OFF = config['schedule_on_off']
                 logger.debug(f"Updated schedule_on_off to {config['schedule_on_off']}")
+                
+            # Update schedule time properties
+            if 'schedule_hour' in config:
+                try:
+                    self.schedule_hour = config['schedule_hour']
+                    logger.debug(f"Updated schedule_hour to {config['schedule_hour']}")
+                except ValueError as e:
+                    logger.warning(f"Invalid schedule_hour value: {e}")
+                    
+            if 'schedule_minute' in config:
+                try:
+                    self.schedule_minute = config['schedule_minute']
+                    logger.debug(f"Updated schedule_minute to {config['schedule_minute']}")
+                except ValueError as e:
+                    logger.warning(f"Invalid schedule_minute value: {e}")
+            
+            # Check if scheduler configuration has been updated
+            schedule_config_modified = False
+            for key in ['schedule_hour', 'schedule_minute', 'schedule_on_off']:
+                if key in config:
+                    schedule_config_modified = True
+                    break
+            
+            # If scheduler-related settings have changed, update the scheduler configuration
+            if schedule_config_modified:
+                try:
+                    # Import here to avoid circular imports
+                    from .scheduler_manager import update_scheduler_config
+                    update_scheduler_config(config)
+                    logger.info("Updated scheduler configuration")
+                except Exception as e:
+                    logger.error(f"Failed to update scheduler configuration: {e}")
             
             # Update domain for CORS
             if 'domain' in config:

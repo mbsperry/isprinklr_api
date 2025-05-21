@@ -1,6 +1,7 @@
-import os, logging, json 
+import os, logging, json
 from logging.handlers import RotatingFileHandler
 from fastapi import FastAPI, Depends
+from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 
 # defaults
@@ -38,7 +39,9 @@ if not os.path.exists(api_conf_file_path):
         "dummy_mode": True, # Set to True for testing without ESP controller
         "schedule_on_off": False,
         "log_level": "DEBUG",
-        "USE_STRICT_CORS": False # Controls whether to use strict CORS settings
+        "USE_STRICT_CORS": False, # Controls whether to use strict CORS settings
+        "schedule_hour": 4, # Default to 4:00 AM for schedule execution
+        "schedule_minute": 0
     }
     try:
         with open(api_conf_file_path, "w") as f:
@@ -75,6 +78,21 @@ from isprinklr.system_status import system_status, schedule_database
 from isprinklr.system_controller import system_controller
 from isprinklr.routers import scheduler, system, sprinklers, logs
 
+# Define lifespan context manager for startup/shutdown events
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Initialize the scheduler
+    from isprinklr.scheduler_manager import setup_scheduler
+    setup_scheduler(system_status.schedule_hour, system_status.schedule_minute)
+    logger.info(f"Initialized scheduler for automated schedule execution at {system_status.schedule_hour:02d}:{system_status.schedule_minute:02d}")
+    
+    yield  # Application runs here
+    
+    # Shutdown: Clean up resources
+    from isprinklr.scheduler_manager import shutdown_scheduler
+    shutdown_scheduler()
+    logger.info("Shut down scheduler")
+
 # Define dependencies
 async def get_system_status():
     return system_status
@@ -85,11 +103,14 @@ async def get_system_controller():
 async def get_schedule_database():
     return schedule_database
 
-app = FastAPI(dependencies=[
-    Depends(get_system_status),
-    Depends(get_system_controller),
-    Depends(get_schedule_database)
-])
+app = FastAPI(
+    dependencies=[
+        Depends(get_system_status),
+        Depends(get_system_controller),
+        Depends(get_schedule_database)
+    ],
+    lifespan=lifespan
+)
 
 # Add CORS middleware to allow requests from the frontend
 if USE_STRICT_CORS:
