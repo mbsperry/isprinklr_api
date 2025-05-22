@@ -9,6 +9,8 @@ class ApiConfig(BaseModel):
     schedule_on_off: bool = Field(..., description="Whether schedules are enabled")
     log_level: str = Field(..., description="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
     USE_STRICT_CORS: bool = Field(..., description="Whether to use strict CORS settings")
+    schedule_hour: int = Field(4, description="Hour of day to run schedule (0-23)")
+    schedule_minute: int = Field(0, description="Minute of hour to run schedule (0-59)")
     
     @field_validator('ESP_controller_IP')
     @classmethod
@@ -28,6 +30,20 @@ class ApiConfig(BaseModel):
         if v.upper() not in valid_levels:
             raise ValueError(f'Log level must be one of: {", ".join(valid_levels)}')
         return v.upper()  # Convert to uppercase for consistency
+    
+    @field_validator('schedule_hour')
+    @classmethod
+    def validate_hour(cls, v):
+        if not (0 <= v <= 23):
+            raise ValueError('Hour must be between 0 and 23')
+        return v
+    
+    @field_validator('schedule_minute')
+    @classmethod
+    def validate_minute(cls, v):
+        if not (0 <= v <= 59):
+            raise ValueError('Minute must be between 0 and 59')
+        return v
 
 class SprinklerCommand(TypedDict):
     zone: int

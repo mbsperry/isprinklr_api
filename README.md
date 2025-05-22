@@ -12,6 +12,7 @@ There are 3 components:
 - Track last time system was run, last time a schedule was run. 
 - Allows for naming different sprinkler zones.
 - Edit and run different schedules.
+- Automated schedule execution using APScheduler (configurable timing)
 - Read system logs to debug any connection issues.
 
 ### Installation Steps
@@ -28,7 +29,6 @@ There are 3 components:
    After configuration, run the API using `fastapi run main.py` from inside the isprinklr directory.
 3. Optional: setup systemd daemon to make sure isprinklr_api runs after restart, power outage, etc. 
 4. Git clone iSprinklr_react. Update src/config.js. Build and serve via nginx or node serve.
-5. If you want to use the scheduling feature you will need to setup a cron job to run the `scheduler.py` script daily.
 
 Credit:
 iSprinklr_esp relies on the HunterRoam library from ecodina (https://github.com/ecodina/hunter-wifi) to actually control the Hunter Pro-c.
@@ -36,8 +36,8 @@ iSprinklr_esp relies on the HunterRoam library from ecodina (https://github.com/
 TODO:
 [ ] Allow renaming schedules. Is this better than just deleting schedules?
 [X] Switch away from PANDAS, I don't need that complexity. 
-[ ] Re-evaluate other libraries to make sure they are all needed.
+[X] Re-evaluate other libraries to make sure they are all needed.
 [X] Build script to set initial configuration. Now will boot up with an initial default config that can be changed via api endpoints.
 [X] If there are no active schedules get active schedule returns an error. - This is ok behavior
-[ ] Use pipreqs to rebuild requirements.txt
-[ ] Implement APScheduler
+[X] Use pipreqs to rebuild requirements.txt
+[X] Implement APScheduler
