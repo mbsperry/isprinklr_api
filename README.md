@@ -36,8 +36,8 @@ iSprinklr_esp relies on the HunterRoam library from ecodina (https://github.com/
 TODO:
 [ ] Allow renaming schedules. Is this better than just deleting schedules?
 [X] Switch away from PANDAS, I don't need that complexity. 
-[ ] Re-evaluate other libraries to make sure they are all needed.
+[X] Re-evaluate other libraries to make sure they are all needed.
 [X] Build script to set initial configuration. Now will boot up with an initial default config that can be changed via api endpoints.
 [X] If there are no active schedules get active schedule returns an error. - This is ok behavior
-[ ] Use pipreqs to rebuild requirements.txt
+[X] Use pipreqs to rebuild requirements.txt
 [X] Implement APScheduler
