@@ -62,13 +62,14 @@ async def test_run_active_schedule_success():
         {"zone": 2, "duration": 120}
     ]
     
-    # Mock run_active_schedule_helper directly instead of its dependencies
-    mock_helper = AsyncMock(return_value=("Test Schedule", scheduled_zones, False))
-    
-    with patch('isprinklr.scheduler_manager.run_active_schedule_helper', mock_helper), \
-         patch.object(isprinklr.system_status.SystemStatus, 'active_zone', new=None), \
-         patch('isprinklr.scheduler_manager.create_task') as mock_create_task:
-         
+    # Setup mocks for directly getting the active schedule
+    with patch.object(isprinklr.system_status.schedule_database, 'get_active_schedule', 
+                    return_value={"schedule_name": "Test Schedule"}), \
+        patch('isprinklr.scheduler_manager.run_schedule_helper', 
+              new_callable=AsyncMock, return_value=(scheduled_zones, False)), \
+        patch.object(isprinklr.system_status.SystemStatus, 'active_zone', new=None), \
+        patch('isprinklr.scheduler_manager.create_task') as mock_create_task:
+        
         # Execute the function
         result = await run_schedule()  # No schedule name means use active schedule
         
@@ -120,10 +121,11 @@ async def test_run_schedule_not_found():
 @pytest.mark.asyncio
 async def test_run_active_schedule_no_zones():
     """Test running the active schedule with no zones for today"""
-    # Mock run_active_schedule_helper directly
-    mock_helper = AsyncMock(return_value=("Test Schedule", [], True))
-    
-    with patch('isprinklr.scheduler_manager.run_active_schedule_helper', mock_helper), \
+    # Mock the components directly
+    with patch.object(isprinklr.system_status.schedule_database, 'get_active_schedule', 
+                    return_value={"schedule_name": "Test Schedule"}), \
+         patch('isprinklr.scheduler_manager.run_schedule_helper', 
+               new_callable=AsyncMock, return_value=([], True)), \
          patch.object(isprinklr.system_status.SystemStatus, 'active_zone', new=None):
          
         # Execute the function
@@ -136,10 +138,15 @@ async def test_run_active_schedule_no_zones():
 @pytest.mark.asyncio
 async def test_run_active_schedule_not_set():
     """Test running the active schedule when none is set"""
-    mock_helper = AsyncMock(side_effect=ValueError("No active schedule"))
-    
-    with patch('isprinklr.scheduler_manager.run_active_schedule_helper', mock_helper), \
+    # The issue is that None active_schedule gets passed to run_schedule_helper 
+    # which then fails when trying to get the schedule
+    with patch('isprinklr.scheduler_manager.schedule_database') as mock_db, \
+         patch('isprinklr.scheduler_manager.run_schedule_helper',
+              side_effect=ValueError("No active schedule set")), \
          patch.object(isprinklr.system_status.SystemStatus, 'active_zone', new=None):
+        
+        # Set up the mock to return None when accessing active_schedule
+        mock_db.active_schedule = None
          
         # Execute the function and expect ValueError
         with pytest.raises(ValueError) as exc_info:
@@ -148,28 +155,29 @@ async def test_run_active_schedule_not_set():
         # Verify error message
         assert "No active schedule" in str(exc_info.value)
 
-def test_automated_schedule_runner_scheduling_disabled():
+@pytest.mark.asyncio
+async def test_automated_schedule_runner_scheduling_disabled():
     """Test automated_schedule_runner when scheduling is disabled"""
     with patch.object(isprinklr.system_status.SystemStatus, 'schedule_on_off', False), \
-         patch('asyncio.run_coroutine_threadsafe') as mock_run:
+         patch('isprinklr.scheduler_manager.run_schedule', new_callable=AsyncMock) as mock_run_schedule:
          
         # Execute the function
-        automated_schedule_runner()
+        await automated_schedule_runner()
         
-        # Verify that run_coroutine_threadsafe was not called
-        mock_run.assert_not_called()
+        # Verify that run_schedule was not called
+        mock_run_schedule.assert_not_called()
 
-def test_automated_schedule_runner_scheduling_enabled():
+@pytest.mark.asyncio
+async def test_automated_schedule_runner_scheduling_enabled():
     """Test automated_schedule_runner when scheduling is enabled"""
     with patch.object(isprinklr.system_status.SystemStatus, 'schedule_on_off', True), \
-         patch('asyncio.run_coroutine_threadsafe') as mock_run, \
-         patch('asyncio.get_event_loop') as mock_loop:
+         patch('isprinklr.scheduler_manager.run_schedule', new_callable=AsyncMock) as mock_run_schedule:
          
         # Execute the function
-        automated_schedule_runner()
+        await automated_schedule_runner()
         
-        # Verify that run_coroutine_threadsafe was called once
-        assert mock_run.call_count == 1
+        # Verify that run_schedule was called once
+        mock_run_schedule.assert_called_once()
 
 def test_setup_scheduler():
     """Test that the scheduler is set up correctly"""

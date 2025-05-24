@@ -4,7 +4,7 @@ Scheduler Manager for managing and automating sprinkler schedules
 This module provides functionality for:
 1. Running schedules manually or automatically
 2. Handling schedule execution in the background
-3. Automated schedule execution using APScheduler
+3. Automated schedule execution using AsyncIOScheduler from APScheduler
 """
 
 import logging
@@ -13,7 +13,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 from asyncio import CancelledError, create_task
 
-from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from isprinklr.system_status import system_status, schedule_database
@@ -23,7 +23,7 @@ from isprinklr.system_controller import system_controller
 logger = logging.getLogger(__name__)
 
 # Create the scheduler as a module-level singleton
-scheduler = BackgroundScheduler()
+scheduler = AsyncIOScheduler()
 
 # Default schedule execution time (6:00 AM)
 DEFAULT_SCHEDULE_HOUR = 4
@@ -85,25 +85,7 @@ async def run_schedule_helper(schedule_name: str) -> Tuple[List[Dict[str, int]],
     
     return zones, not bool(zones)
 
-async def run_active_schedule_helper() -> Tuple[str, List[Dict[str, int]], bool]:
-    """Helper function to prepare zones for running the active schedule.
-    
-    Returns:
-        Tuple containing:
-            - Name of the active schedule
-            - List of zones to run with their durations
-            - Boolean indicating if there are no zones scheduled (True = no zones)
-            
-    Raises:
-        ValueError: If no active schedule is set
-        RuntimeError: If system is already running
-    """
-    # Get the active schedule
-    schedule = schedule_database.get_active_schedule()
-    schedule_name = schedule["schedule_name"]
-    
-    zones, no_zones = await run_schedule_helper(schedule_name)
-    return schedule_name, zones, no_zones
+# run_active_schedule_helper function removed to eliminate code duplication
 
 async def run_schedule(schedule_name: str = None) -> Dict[str, Any]:
     """Run a schedule by name, or the active schedule if no name is provided.
@@ -127,7 +109,8 @@ async def run_schedule(schedule_name: str = None) -> Dict[str, Any]:
         # Determine which schedule to run
         if schedule_name is None:
             # Use active schedule
-            name, zones, no_zones = await run_active_schedule_helper()
+            name = schedule_database.active_schedule
+            zones, no_zones = await run_schedule_helper(name)
             using_active = True
         else:
             # Use the specified schedule
@@ -167,11 +150,11 @@ async def run_schedule(schedule_name: str = None) -> Dict[str, Any]:
         # System is already running
         raise
 
-def automated_schedule_runner():
+async def automated_schedule_runner():
     """
-    Minimal wrapper for run_schedule that:
+    Async function for running the active schedule.
     1. Checks if scheduling is enabled
-    2. Handles APScheduler's need for a non-async function
+    2. Directly calls run_schedule() as AsyncIOScheduler supports coroutines
     3. Handles errors appropriately for an automated context
     """
     logger.info("Automated scheduled job triggered")
@@ -182,9 +165,8 @@ def automated_schedule_runner():
         return
     
     try:
-        # Submit the async function to the event loop from our background thread
-        loop = asyncio.get_event_loop()
-        asyncio.run_coroutine_threadsafe(run_schedule(), loop)
+        # Directly call the async function
+        await run_schedule()
         logger.info("Successfully scheduled sprinkler task")
     except Exception as e:
         logger.error(f"Error running automated schedule: {e}")
