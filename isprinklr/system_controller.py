@@ -22,7 +22,7 @@ class SystemController:
         except Exception as e:
             logger.error(f"Error in zone timer: {e}")
             system_status.update_status("error", str(e), None)
-            raise
+            # No raise here to avoid unhandled exceptions in tasks
 
     def check_hunter_connection(self) -> bool:
         """Check if the ESP controller hardware is responding.
@@ -80,8 +80,11 @@ class SystemController:
                     system_status.update_status("active", None, sprinkler['zone'], sprinkler['duration'])
                     system_status.last_zone_run = sprinkler['zone']
                     
-                    # Create and start new timer task
-                    self._timer_task = asyncio.create_task(self._zone_timer(sprinkler['duration']))
+                    # Create and start new timer task - with proper naming and handling
+                    self._timer_task = asyncio.create_task(
+                        self._zone_timer(sprinkler['duration']), 
+                        name=f"zone_timer_task_{sprinkler['zone']}"
+                    )
                     return True
                 else:
                     logger.error(f"Started zone {sprinkler['zone']} for {sprinkler['duration']} seconds: failed")
@@ -144,7 +147,7 @@ class SystemController:
             raise
         except Exception as exc:
             if system_status.active_zone:
-                logger.error("Failed to stop zone, hardware error")
+                logger.error("Failed to stop zone, other error")
                 raise
             return True
 
@@ -187,6 +190,9 @@ class SystemController:
             Exception: If any zone fails
             asyncio.CancelledError: If sequence is cancelled
         """
+        # Add padding between zones to avoid race conditions
+        ZONE_TRANSITION_PADDING = 10  # seconds
+        
         try:
             for zone in zones:
                 logger.debug(f"Starting zone {zone['zone']} for {zone['duration']} seconds")
@@ -194,6 +200,9 @@ class SystemController:
                     await self.start_sprinkler(zone)
                     try:
                         await asyncio.sleep(zone['duration'])
+                        # Add padding delay between zones to avoid race conditions
+                        logger.debug(f"Adding {ZONE_TRANSITION_PADDING} seconds padding before next zone")
+                        await asyncio.sleep(ZONE_TRANSITION_PADDING)
                         # Stop the current zone before moving to the next one
                         await self.stop_system()
                     except asyncio.CancelledError:

@@ -34,6 +34,7 @@ Credit:
 iSprinklr_esp relies on the HunterRoam library from ecodina (https://github.com/ecodina/hunter-wifi) to actually control the Hunter Pro-c.
 
 TODO:
+[ ] Use async functions in esp_controller module to avoid race conditions
 [ ] Allow renaming schedules. Is this better than just deleting schedules?
 [X] Switch away from PANDAS, I don't need that complexity. 
 [X] Re-evaluate other libraries to make sure they are all needed.
