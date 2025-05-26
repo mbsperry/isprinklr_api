@@ -11,6 +11,7 @@ class SystemController:
     def __init__(self):
         self._timer_task: Optional[asyncio.Task] = None
         self._sequence_task: Optional[asyncio.Task] = None
+        self._in_sequence: bool = False  # Flag to track if we're in a sequence
 
     async def _zone_timer(self, duration: int):
         try:
@@ -80,11 +81,14 @@ class SystemController:
                     system_status.update_status("active", None, sprinkler['zone'], sprinkler['duration'])
                     system_status.last_zone_run = sprinkler['zone']
                     
-                    # Create and start new timer task - with proper naming and handling
-                    self._timer_task = asyncio.create_task(
-                        self._zone_timer(sprinkler['duration']), 
-                        name=f"zone_timer_task_{sprinkler['zone']}"
-                    )
+                    # Only create a timer task if we're not in a sequence
+                    # This prevents the recursive dependency
+                    if not self._in_sequence:
+                        # Create and start new timer task - with proper naming and handling
+                        self._timer_task = asyncio.create_task(
+                            self._zone_timer(sprinkler['duration']), 
+                            name=f"zone_timer_task_{sprinkler['zone']}"
+                        )
                     return True
                 else:
                     logger.error(f"Started zone {sprinkler['zone']} for {sprinkler['duration']} seconds: failed")
@@ -117,6 +121,7 @@ class SystemController:
                     logger.debug("Zone sequence cancellation confirmed")
                     pass
                 self._sequence_task = None
+                self._in_sequence = False
 
             # Only check connection and stop hardware if a zone is active
             if system_status.active_zone:
@@ -166,8 +171,10 @@ class SystemController:
             asyncio.CancelledError: If sequence is cancelled
             Exception: If any zone fails or other errors occur
         """
+        logger.debug(f"Running zone sequence: {zones}")
         try:
             # Create a new task for the sequence
+            self._in_sequence = True  # Set flag to indicate we're in a sequence
             self._sequence_task = asyncio.create_task(self._run_sequence(zones))
             await self._sequence_task
             return True
@@ -179,6 +186,7 @@ class SystemController:
             raise
         finally:
             self._sequence_task = None
+            self._in_sequence = False  # Reset flag when sequence is done
 
     async def _run_sequence(self, zones: List[Dict[str, int]]) -> None:
         """Internal method to run the zone sequence.
@@ -197,12 +205,17 @@ class SystemController:
             for zone in zones:
                 logger.debug(f"Starting zone {zone['zone']} for {zone['duration']} seconds")
                 try:
+                    # Start the zone but _zone_timer() isn't' used in a sequence
                     await self.start_sprinkler(zone)
+                    
                     try:
+                        # Directly wait for the duration here
                         await asyncio.sleep(zone['duration'])
-                        # Add padding delay between zones to avoid race conditions
+                        
+                        # Add padding delay between zones
                         logger.debug(f"Adding {ZONE_TRANSITION_PADDING} seconds padding before next zone")
                         await asyncio.sleep(ZONE_TRANSITION_PADDING)
+                        
                         # Stop the current zone before moving to the next one
                         await self.stop_system()
                     except asyncio.CancelledError:
