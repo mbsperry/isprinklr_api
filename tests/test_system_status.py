@@ -170,3 +170,201 @@ def test_last_schedule_run(mock_system_status):
     assert last_schedule["message"] == "Success"
     assert "timestamp" in last_schedule
     assert isinstance(last_schedule["timestamp"], float)
+
+# Tests for ESP controller configuration updates
+
+def test_update_api_config_updates_esp_controller(mocker):
+    """Test that updating API config updates ESP controller config when both IP and dummy mode change"""
+    # Mock API config
+    mock_api_config = {
+        "ESP_controller_IP": "192.168.1.100",
+        "domain": "test.domain.com",
+        "dummy_mode": False,
+        "schedule_on_off": True,
+        "log_level": "INFO",
+        "USE_STRICT_CORS": False
+    }
+    
+    # Mock file operations and system status dependencies
+    mocker.patch('isprinklr.sprinkler_service.read_sprinklers', return_value=sprinklers)
+    mocker.patch('isprinklr.system_status.schedule_database.set_sprinklers')
+    mocker.patch('isprinklr.system_status.schedule_database.load_database')
+    mocker.patch('builtins.open', mocker.mock_open())
+    mocker.patch('json.dump')
+    mocker.patch('json.load', return_value=mock_api_config)
+    
+    # Mock esp_controller module
+    mock_esp_controller = mocker.patch('isprinklr.system_status.esp_controller')
+    
+    # Create updated config with new ESP controller IP and dummy mode
+    updated_config = mock_api_config.copy()
+    updated_config["ESP_controller_IP"] = "192.168.1.200"
+    updated_config["dummy_mode"] = True
+    
+    # Create SystemStatus instance and call update_api_config
+    system_status = SystemStatus()
+    system_status.update_api_config(updated_config)
+    
+    # Verify esp_controller.update_config was called with correct parameters
+    mock_esp_controller.update_config.assert_called_once()
+    
+    # Extract the call arguments
+    call_args = mock_esp_controller.update_config.call_args[1]
+    assert "new_ip" in call_args
+    assert "new_dummy_mode" in call_args
+    assert call_args["new_ip"] == "192.168.1.200"
+    assert call_args["new_dummy_mode"] == True
+
+def test_update_api_config_ip_only(mocker):
+    """Test that updating only ESP controller IP updates both parameters (IP updated)"""
+    # Mock API config
+    mock_api_config = {
+        "ESP_controller_IP": "192.168.1.100",
+        "domain": "test.domain.com",
+        "dummy_mode": False,
+        "schedule_on_off": True,
+        "log_level": "INFO",
+        "USE_STRICT_CORS": False
+    }
+    
+    # Mock file operations and system status dependencies
+    mocker.patch('isprinklr.sprinkler_service.read_sprinklers', return_value=sprinklers)
+    mocker.patch('isprinklr.system_status.schedule_database.set_sprinklers')
+    mocker.patch('isprinklr.system_status.schedule_database.load_database')
+    mocker.patch('builtins.open', mocker.mock_open())
+    mocker.patch('json.dump')
+    mocker.patch('json.load', return_value=mock_api_config)
+    
+    # Mock esp_controller module
+    mock_esp_controller = mocker.patch('isprinklr.system_status.esp_controller')
+    
+    # Create updated config with new ESP controller IP only
+    updated_config = mock_api_config.copy()
+    updated_config["ESP_controller_IP"] = "192.168.1.200"
+    
+    # Create SystemStatus instance and call update_api_config
+    system_status = SystemStatus()
+    system_status.update_api_config(updated_config)
+    
+    # Verify esp_controller.update_config was called with correct parameters
+    mock_esp_controller.update_config.assert_called_once()
+    
+    # Extract the call arguments - both params should be present
+    call_args = mock_esp_controller.update_config.call_args[1]
+    assert "new_ip" in call_args
+    assert call_args["new_ip"] == "192.168.1.200"
+    assert "new_dummy_mode" in call_args
+    assert call_args["new_dummy_mode"] == False  # Original dummy_mode is maintained
+
+def test_update_api_config_dummy_mode_only(mocker):
+    """Test that updating only dummy mode updates both parameters (dummy mode updated)"""
+    # Mock API config
+    mock_api_config = {
+        "ESP_controller_IP": "192.168.1.100",
+        "domain": "test.domain.com",
+        "dummy_mode": False,
+        "schedule_on_off": True,
+        "log_level": "INFO",
+        "USE_STRICT_CORS": False
+    }
+    
+    # Mock file operations and system status dependencies
+    mocker.patch('isprinklr.sprinkler_service.read_sprinklers', return_value=sprinklers)
+    mocker.patch('isprinklr.system_status.schedule_database.set_sprinklers')
+    mocker.patch('isprinklr.system_status.schedule_database.load_database')
+    mocker.patch('builtins.open', mocker.mock_open())
+    mocker.patch('json.dump')
+    mocker.patch('json.load', return_value=mock_api_config)
+    
+    # Mock esp_controller module
+    mock_esp_controller = mocker.patch('isprinklr.system_status.esp_controller')
+    
+    # Create updated config with new dummy mode only
+    updated_config = mock_api_config.copy()
+    updated_config["dummy_mode"] = True
+    
+    # Create SystemStatus instance and call update_api_config
+    system_status = SystemStatus()
+    system_status.update_api_config(updated_config)
+    
+    # Verify esp_controller.update_config was called with correct parameters
+    mock_esp_controller.update_config.assert_called_once()
+    
+    # Extract the call arguments - both params should be present
+    call_args = mock_esp_controller.update_config.call_args[1]
+    assert "new_dummy_mode" in call_args
+    assert call_args["new_dummy_mode"] == True
+    assert "new_ip" in call_args
+    assert call_args["new_ip"] == "192.168.1.100"  # Original IP is maintained
+
+def test_update_api_config_no_esp_changes(mocker):
+    """Test ESP controller config is still updated even when only non-ESP-related changes occur"""
+    # Mock API config
+    mock_api_config = {
+        "ESP_controller_IP": "192.168.1.100",
+        "domain": "test.domain.com",
+        "dummy_mode": False,
+        "schedule_on_off": True,
+        "log_level": "INFO",
+        "USE_STRICT_CORS": False
+    }
+    
+    # Mock file operations and system status dependencies
+    mocker.patch('isprinklr.sprinkler_service.read_sprinklers', return_value=sprinklers)
+    mocker.patch('isprinklr.system_status.schedule_database.set_sprinklers')
+    mocker.patch('isprinklr.system_status.schedule_database.load_database')
+    mocker.patch('builtins.open', mocker.mock_open())
+    mocker.patch('json.dump')
+    mocker.patch('json.load', return_value=mock_api_config)
+    
+    # Mock esp_controller module
+    mock_esp_controller = mocker.patch('isprinklr.system_status.esp_controller')
+    
+    # Create updated config with no ESP controller changes
+    updated_config = mock_api_config.copy()
+    updated_config["log_level"] = "DEBUG"  # Non-ESP related change
+    
+    # Create SystemStatus instance and call update_api_config
+    system_status = SystemStatus()
+    system_status.update_api_config(updated_config)
+    
+    # Verify esp_controller.update_config was still called with the same values
+    mock_esp_controller.update_config.assert_called_once()
+    call_args = mock_esp_controller.update_config.call_args[1]
+    assert call_args["new_ip"] == "192.168.1.100"
+    assert call_args["new_dummy_mode"] == False
+
+def test_update_api_config_logs_esp_update(mocker):
+    """Test that updating ESP controller config is logged"""
+    # Mock API config
+    mock_api_config = {
+        "ESP_controller_IP": "192.168.1.100",
+        "domain": "test.domain.com",
+        "dummy_mode": False,
+        "schedule_on_off": True,
+        "log_level": "INFO",
+        "USE_STRICT_CORS": False
+    }
+    
+    # Mock file operations and system status dependencies
+    mocker.patch('isprinklr.sprinkler_service.read_sprinklers', return_value=sprinklers)
+    mocker.patch('isprinklr.system_status.schedule_database.set_sprinklers')
+    mocker.patch('isprinklr.system_status.schedule_database.load_database')
+    mocker.patch('builtins.open', mocker.mock_open())
+    mocker.patch('json.dump')
+    mocker.patch('json.load', return_value=mock_api_config)
+    
+    # Mock esp_controller module and logger
+    mocker.patch('isprinklr.system_status.esp_controller')
+    mock_logger = mocker.patch('isprinklr.system_status.logger')
+    
+    # Create updated config with ESP controller changes
+    updated_config = mock_api_config.copy()
+    updated_config["ESP_controller_IP"] = "192.168.1.200"
+    
+    # Create SystemStatus instance and call update_api_config
+    system_status = SystemStatus()
+    system_status.update_api_config(updated_config)
+    
+    # Verify logging occurred
+    mock_logger.info.assert_any_call("Updating ESP controller configuration...")

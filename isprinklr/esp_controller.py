@@ -69,6 +69,57 @@ logger.info(f"Effective ESP Controller DUMMY_MODE: {DUMMY_MODE}")
 BASE_URL = f"http://{ESP_CONTROLLER_IP}" if ESP_CONTROLLER_IP else ""
 # --- End Robust Configuration Loading ---
 
+def update_config(new_ip=None, new_dummy_mode=None):
+    """Update the ESP controller configuration.
+    
+    This function updates the ESP controller configuration.
+    
+    Args:
+        new_ip (str, optional): New IP address for the ESP controller. 
+                                If None, keeps the current value.
+        new_dummy_mode (bool, optional): New dummy mode setting. 
+                                         If None, keeps the current value.
+    
+    Returns:
+        dict: The updated configuration with the following keys:
+            - ESP_controller_IP (str): The IP address of the ESP controller
+            - dummy_mode (bool): Whether to run in dummy mode
+            - BASE_URL (str): The base URL for API requests
+    """
+    global ESP_CONTROLLER_IP, DUMMY_MODE, BASE_URL
+    
+    # Track whether anything changes
+    changed = False
+    
+    # Update IP if provided
+    if new_ip is not None and ESP_CONTROLLER_IP != new_ip:
+        ESP_CONTROLLER_IP = new_ip
+        changed = True
+    
+    # Update dummy mode if provided
+    if new_dummy_mode is not None and DUMMY_MODE != new_dummy_mode:
+        DUMMY_MODE = new_dummy_mode
+        changed = True
+    
+    # Final safety check: if IP is not set, force dummy mode
+    if not ESP_CONTROLLER_IP and not DUMMY_MODE:
+        logger.warning(f"ESP_CONTROLLER_IP is not set, but DUMMY_MODE is False. Forcing DUMMY_MODE=True to prevent errors.")
+        DUMMY_MODE = True
+        changed = True
+    
+    # Update BASE_URL if IP changed
+    if changed:
+        BASE_URL = f"http://{ESP_CONTROLLER_IP}" if ESP_CONTROLLER_IP else ""
+        logger.info(f"ESP controller configuration updated.")
+        logger.info(f"New ESP Controller IP: '{ESP_CONTROLLER_IP}'")
+        logger.info(f"New ESP Controller DUMMY_MODE: {DUMMY_MODE}")
+    
+    return {
+        "ESP_controller_IP": ESP_CONTROLLER_IP,
+        "dummy_mode": DUMMY_MODE,
+        "BASE_URL": BASE_URL
+    }
+
 def test_awake():
     """Check if the ESP controller is responding.
     

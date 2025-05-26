@@ -3,6 +3,7 @@ from typing import Any, Optional, List, Dict
 
 from .paths import config_path, data_path
 import isprinklr.sprinkler_service as sprinkler_service
+import isprinklr.esp_controller as esp_controller
 from .schedule_database import ScheduleDatabase
 from .schemas import SprinklerConfig
 
@@ -354,6 +355,23 @@ class SystemStatus:
             
             # Update internal state and global variables
             global DOMAIN, SCHEDULE_ON_OFF, LOG_LEVEL
+            
+            # Check if ESP controller config needs to be updated
+            esp_config_changed = False
+            update_params = {}
+            
+            if 'ESP_controller_IP' in config:
+                update_params['new_ip'] = config['ESP_controller_IP']
+                esp_config_changed = True
+                
+            if 'dummy_mode' in config:
+                update_params['new_dummy_mode'] = config['dummy_mode']
+                esp_config_changed = True
+                
+            # Update ESP controller configuration if needed
+            if esp_config_changed:
+                logger.info("Updating ESP controller configuration...")
+                esp_controller.update_config(**update_params)
             
             # Update schedule_on_off both in SystemStatus instance and global variable
             if 'schedule_on_off' in config:
