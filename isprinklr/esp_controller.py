@@ -2,20 +2,17 @@ import requests
 import logging
 import json
 import time
-import os # Added os
+import os 
 
 from isprinklr.paths import config_path
 
 # Set up logging using the unified logging interface
 logger = logging.getLogger(__name__)
 
-# --- Robust Configuration Loading ---
 DEFAULT_ESP_CONTROLLER_IP = ""
-# Default DUMMY_MODE to True if IP is not set or config fails, otherwise False.
-# This will be determined after attempting to load ESP_CONTROLLER_IP.
 
 ESP_CONTROLLER_IP = DEFAULT_ESP_CONTROLLER_IP
-DUMMY_MODE = True # Initial safe default, might be overridden by config or logic below
+DUMMY_MODE = True # Initial safe default
 
 try:
     api_conf_path = os.path.join(config_path, "api.conf")
@@ -25,24 +22,13 @@ try:
         
         ESP_CONTROLLER_IP = config.get("ESP_controller_IP", DEFAULT_ESP_CONTROLLER_IP)
         
-        # Determine DUMMY_MODE:
-        # 1. Respect "dummy_mode" from config if present.
-        # 2. If "dummy_mode" not in config, or IP is empty, default to True (dummy mode).
-        # 3. Otherwise (IP is present and "dummy_mode" not in config), default to False (real mode).
-        raw_dummy_mode = config.get("dummy_mode") # Get raw value, could be bool or string
+        raw_dummy_mode = config.get("dummy_mode") 
 
         if raw_dummy_mode is not None:
             if isinstance(raw_dummy_mode, bool):
                 DUMMY_MODE = raw_dummy_mode
             else: # Attempt to parse from string
                 DUMMY_MODE = str(raw_dummy_mode).lower() == "true"
-        elif not ESP_CONTROLLER_IP: # No dummy_mode in config, and IP is empty
-            DUMMY_MODE = True
-            logger.info(f"'dummy_mode' not in '{api_conf_path}' and ESP_CONTROLLER_IP is empty. Forcing DUMMY_MODE=True.")
-        else: # No dummy_mode in config, but IP is present
-            DUMMY_MODE = False 
-            # This case implies we want to run in real mode if IP is set and dummy_mode is not specified.
-            # The default api.conf created by main.py *does* specify dummy_mode.
 
 except FileNotFoundError:
     logger.warning(f"'{api_conf_path}' not found. Using default ESP_CONTROLLER_IP='{DEFAULT_ESP_CONTROLLER_IP}' and DUMMY_MODE=True.")
@@ -57,17 +43,11 @@ except Exception as e:
     ESP_CONTROLLER_IP = DEFAULT_ESP_CONTROLLER_IP
     DUMMY_MODE = True
 
-# Final safety check: if IP is not set, force dummy mode.
-if not ESP_CONTROLLER_IP and not DUMMY_MODE:
-    logger.warning(f"ESP_CONTROLLER_IP is not set, but DUMMY_MODE is False. Forcing DUMMY_MODE=True to prevent errors.")
-    DUMMY_MODE = True
-
 logger.info(f"Effective ESP Controller IP: '{ESP_CONTROLLER_IP}'")
 logger.info(f"Effective ESP Controller DUMMY_MODE: {DUMMY_MODE}")
 
 # Build base URL - only if IP is set and not in dummy mode (though requests won't be made in dummy mode)
 BASE_URL = f"http://{ESP_CONTROLLER_IP}" if ESP_CONTROLLER_IP else ""
-# --- End Robust Configuration Loading ---
 
 def update_config(new_ip=None, new_dummy_mode=None):
     """Update the ESP controller configuration.
@@ -101,12 +81,6 @@ def update_config(new_ip=None, new_dummy_mode=None):
         DUMMY_MODE = new_dummy_mode
         changed = True
     
-    # Final safety check: if IP is not set, force dummy mode
-    if not ESP_CONTROLLER_IP and not DUMMY_MODE:
-        logger.warning(f"ESP_CONTROLLER_IP is not set, but DUMMY_MODE is False. Forcing DUMMY_MODE=True to prevent errors.")
-        DUMMY_MODE = True
-        changed = True
-    
     # Update BASE_URL if IP changed
     if changed:
         BASE_URL = f"http://{ESP_CONTROLLER_IP}" if ESP_CONTROLLER_IP else ""
@@ -137,7 +111,7 @@ def test_awake():
             "dummy_mode": True,
             "uptime_ms": 123456,
             "chip": {
-                "model": "ESP32-S3",
+                "model": "ESP32-S3 DUMMY_MODE",
                 "revision": 1,
                 "cores": 2
             },
