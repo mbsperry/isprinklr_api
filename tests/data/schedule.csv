@@ -1,0 +1,5 @@
+zone,day,duration
+1,EO,60
+2,ALL,120
+3,M:W:F,180
+4,Tu:Th,240
