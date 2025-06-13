@@ -29,7 +29,7 @@ There are 3 components:
      - Configure sprinkler zones at:  
        `http://API_IP:8000/docs#/sprinklers/update_sprinklers_api_sprinklers__put`
    After configuration, run the API using `fastapi run main.py` from inside the isprinklr directory.
-3. Optional: setup systemd daemon to make sure isprinklr_api runs after restart, power outage, etc. 
+3. Optional: setup systemd daemon to make sure isprinklr_api runs after restart, power outage, etc. PM2 (requires node) is another option that is *much* easier to setup.  
 4. Git clone iSprinklr_react. Update src/config.js. Build and serve via nginx or node serve.
 
 Credit:
