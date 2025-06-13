@@ -205,7 +205,7 @@ Endpoints for managing and controlling sprinkler zones.
 
 Get all configured sprinkler zones and their names.
 
-**Endpoint**: `GET /api/sprinklers`
+**Endpoint**: `GET /api/sprinklers/`
 
 **Parameters**: None
 
@@ -234,7 +234,7 @@ Get all configured sprinkler zones and their names.
 
 Update the configuration of multiple sprinkler zones.
 
-**Endpoint**: `PUT /api/sprinklers`
+**Endpoint**: `PUT /api/sprinklers/`
 
 **Parameters**:
 ```json
@@ -574,12 +574,8 @@ Enable or disable the automated schedule.
 
 **Endpoint**: `PUT /api/scheduler/on_off`
 
-**Parameters**:
-```json
-{
-  "schedule_on_off": true
-}
-```
+**Parameters**: 
+- Request body should contain a single boolean value: `true` or `false`
 
 **Returns**:
 ```json
@@ -668,12 +664,12 @@ Endpoints for accessing system logs.
 
 Retrieve and filter system logs.
 
-**Endpoint**: `GET /api/logs`
+**Endpoint**: `GET /api/logs/`
 
 **Parameters**:
 - `module_name` (string, optional): Filter logs by module name (e.g., 'sprinkler_service')
 - `debug_level` (string, optional): Filter logs by debug level (DEBUG, INFO, ERROR, etc.)
-- `lines` (int, optional): Number of most recent log lines to return (1-200, default: 100)
+- `lines` (int, optional): Number of most recent log lines to return (1-1000, default: 100)
 
 **Returns**:
 ```json

@@ -65,6 +65,3 @@ class Schedule(TypedDict):
 class ScheduleList(TypedDict):
     schedules: List[Schedule]
     active_schedule: Optional[str]
-
-class ScheduleOnOff(BaseModel):
-    schedule_on_off: bool
