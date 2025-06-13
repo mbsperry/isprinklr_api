@@ -105,7 +105,7 @@ async def create_schedule(schedule: Schedule) -> Dict[str, Any]:
     """
     try:
         created_schedule = schedule_database.add_schedule(schedule)
-        logger.info(f"Successfully created schedule '{schedule.schedule_name}' with {len(schedule.schedule_items)} items")
+        logger.info(f"Successfully created schedule '{schedule['schedule_name']}' with {len(schedule['schedule_items'])} items")
         return {"message": "Success", "schedule": created_schedule}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))

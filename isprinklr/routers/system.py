@@ -1,6 +1,7 @@
 import logging
 from fastapi import APIRouter, HTTPException
 
+from isprinklr import __version__
 from isprinklr.system_status import system_status
 from isprinklr.system_controller import system_controller
 from isprinklr.schemas import ApiConfig
@@ -51,6 +52,16 @@ Raises:
         logger.error(f"Failed to get last schedule run status: {exc}")
         raise HTTPException(status_code=500, detail="Failed to get last schedule run status, see logs for details")
 
+
+@router.get("/version")
+async def get_version():
+    """Get the current API version.
+
+Returns:
+* Dictionary containing:
+  * version (str): The current version of the API
+    """
+    return {"version": __version__}
 
 @router.get("/status")
 async def get_status():

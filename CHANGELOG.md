@@ -1,5 +1,39 @@
 # Changelog
 
+## [2.1.0] - 2025-06-13
+
+### Major Changes
+- Migrated to ESP32-based controller with REST API over ethernet (from serial connection)
+- Implemented APScheduler for automated schedule execution without cron dependency
+- Improved system configuration with new interactive CLI tool (configure.py)
+
+### Architecture Improvements
+- Eliminated dependency on PANDAS for data storage
+- Enhanced ESP controller communication with better error handling
+- Fixed race conditions in zone sequence running
+- Added ability to update ESP controller configuration without API restart
+- Improved async implementation using AsyncIOScheduler
+
+### Logging & Diagnostics
+- Enhanced logging system with configurable log levels
+- Added ability to retrieve up to 1000 lines from logs
+- Added module list endpoint for filtering logs
+- Improved error tracking and debugging capabilities
+
+### System Tracking & Control
+- Added tracking of last zone run and last schedule run
+- Improved schedule management with better error handling
+- Enhanced system stopping mechanism while running zone sequences
+- Added endpoints to run active and specific schedules
+- Improved handling of cancelled operations
+
+### API Refinements
+- Added CORS handling for better frontend integration
+- Improved API endpoint documentation
+- Enhanced error reporting
+- Better boolean handling in settings
+- Completely removed deprecated V1 API routes (no longer backward compatible)
+
 ## [2.0.0] - 2024
 
 ### Major Changes

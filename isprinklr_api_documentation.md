@@ -16,6 +16,23 @@ This document provides comprehensive documentation for all API endpoints in the 
 
 Endpoints for checking system status and retrieving system information.
 
+### Get API Version
+
+Get the current version of the iSprinklr API.
+
+**Endpoint**: `GET /api/system/version`
+
+**Parameters**: None
+
+**Returns**:
+```json
+{
+  "version": "2.1.0"
+}
+```
+
+**Possible Errors**: None
+
 ### Get System Status
 
 Get the current system status including hardware connectivity, active zones, and ESP32 controller details.

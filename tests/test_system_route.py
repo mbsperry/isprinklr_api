@@ -3,6 +3,7 @@ import pytest
 from unittest import mock
 
 from context import isprinklr
+from isprinklr import __version__
 from isprinklr.main import app
 from isprinklr.system_status import system_status
 import isprinklr.esp_controller as esp_controller
@@ -120,6 +121,12 @@ def test_get_status():
   assert "network" in response_data["esp_status"]
   assert "connected" in response_data["esp_status"]["network"]
   assert response_data["esp_status"]["network"]["connected"] == True
+
+def test_get_version():
+    """Test that the /api/system/version endpoint returns the correct version."""
+    response = client.get("/api/system/version")
+    assert response.status_code == 200
+    assert response.json() == {"version": __version__}
 
 def test_get_config(monkeypatch):
     # Mock the get_api_config function to return test data

@@ -2,6 +2,8 @@
 
 iSprinklr uses an ESP32 to control a Hunter Pro-c sprinkler system.
 
+![Version](https://img.shields.io/badge/version-2.1.0-blue)
+
 There are 3 components:
 - iSprinklr_esp (https://github.com/mbsperry/isprinklr_esp) is the ESP32 controller which has a very simple REST API for turning the sprinkler system on/off
 - iSprinklr_api (https://github.com/mbsperry/isprinklr_api) is an API built with Python and FastAPI. It provides a much more powerful API for controlling the system including monitoring which system is active and running user created schedules. 
@@ -33,12 +35,8 @@ There are 3 components:
 Credit:
 iSprinklr_esp relies on the HunterRoam library from ecodina (https://github.com/ecodina/hunter-wifi) to actually control the Hunter Pro-c.
 
-TODO:
-[ ] Use async functions in esp_controller module to avoid race conditions
-[ ] Allow renaming schedules. Is this better than just deleting schedules?
-[X] Switch away from PANDAS, I don't need that complexity. 
-[X] Re-evaluate other libraries to make sure they are all needed.
-[X] Build script to set initial configuration. Now will boot up with an initial default config that can be changed via api endpoints.
-[X] If there are no active schedules get active schedule returns an error. - This is ok behavior
-[X] Use pipreqs to rebuild requirements.txt
-[X] Implement APScheduler
+## Versioning
+
+Moves to semantic versioning. 
+
+For a detailed changelog of versions and features, see the [CHANGELOG.md](CHANGELOG.md) file.

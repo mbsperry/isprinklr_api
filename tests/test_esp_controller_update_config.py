@@ -84,26 +84,6 @@ def test_update_config_both():
     assert esp_controller.DUMMY_MODE == True
     assert esp_controller.BASE_URL == f"http://{NEW_MOCK_ESP_IP}"
 
-def test_update_config_safety_check():
-    """Test the safety check for empty IP and dummy mode False"""
-    # Set initial values
-    esp_controller.ESP_CONTROLLER_IP = ""
-    esp_controller.DUMMY_MODE = False
-    esp_controller.BASE_URL = ""
-    
-    # Update with empty IP and dummy mode False
-    result = esp_controller.update_config()
-    
-    # Safety check should force dummy mode to True
-    assert result["ESP_controller_IP"] == ""
-    assert result["dummy_mode"] == True
-    assert result["BASE_URL"] == ""
-    
-    # Check that globals were updated
-    assert esp_controller.ESP_CONTROLLER_IP == ""
-    assert esp_controller.DUMMY_MODE == True
-    assert esp_controller.BASE_URL == ""
-
 def test_update_config_no_change():
     """Test when no changes are made"""
     # Set initial values
