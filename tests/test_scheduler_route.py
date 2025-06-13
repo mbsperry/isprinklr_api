@@ -20,16 +20,19 @@ test_schedule = {
 }
 
 @pytest.fixture(autouse=True)
-async def cleanup_tasks():
+def cleanup_tasks():
+    """Clean up any pending asyncio tasks after each test"""
     yield
     # Clean up any pending tasks after each test
-    tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
-    for task in tasks:
-        task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            pass
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            tasks = [t for t in asyncio.all_tasks(loop) if not t.done()]
+            for task in tasks:
+                task.cancel()
+    except RuntimeError:
+        # No event loop running, nothing to clean up
+        pass
 
 def test_get_schedules(mocker):
     mocker.patch.object(schedule_database, 'schedules', [test_schedule])
