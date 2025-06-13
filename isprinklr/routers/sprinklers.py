@@ -42,6 +42,7 @@ Raises:
     """
     try:
         new_sprinklers = system_status.update_sprinklers(sprinklers)
+        logger.info(f"Successfully updated {len(sprinklers)} sprinkler zones")
         return {"message": "Success", "zones": new_sprinklers}
     except ValueError as exc:
         logger.error(f"Failed to update sprinklers, invalid data: {exc}")
@@ -72,6 +73,7 @@ Raises:
     logger.debug(f'Received: {sprinkler}')
     try:
         await system_controller.start_sprinkler(sprinkler)
+        logger.info(f"Successfully started zone {sprinkler['zone']} for {sprinkler['duration']} seconds")
         return {"message": f"Zone {sprinkler['zone']} started"}
     except ValueError as exc:
         logger.error(f"Failed to start sprinkler: {exc}")
@@ -98,6 +100,7 @@ Raises:
     """
     try:
         await system_controller.stop_system()
+        logger.info("Successfully stopped all sprinkler zones")
         return {"message": "System stopped"}
     except Exception as exc:
         logger.error(f"Failed to stop system: {exc}")

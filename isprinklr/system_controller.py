@@ -43,7 +43,6 @@ class SystemController:
             system_status.esp_status_data = status_data
             
             logger.debug('ESP controller connected')
-            logger.debug(f'ESP status data: {status_data}')
             
             # If the system was previously in an error state, clear the status message
             if system_status.get_status()["systemStatus"] == "error":
@@ -213,7 +212,6 @@ class SystemController:
                         await asyncio.sleep(zone['duration'])
                         
                         # Add padding delay between zones
-                        logger.debug(f"Adding {ZONE_TRANSITION_PADDING} seconds padding before next zone")
                         await asyncio.sleep(ZONE_TRANSITION_PADDING)
                         
                         # Stop the current zone before moving to the next one

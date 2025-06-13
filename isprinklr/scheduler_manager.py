@@ -38,6 +38,8 @@ async def run_schedule_background(schedule_name: str, zones: List[Dict[str, int]
     """
     try:
         await system_controller.run_zone_sequence(zones)
+        zone_info = ", ".join([f"zone {z['zone']} ({z['duration']}s)" for z in zones])
+        logger.info(f"Successfully completed schedule '{schedule_name}': {zone_info}")
         system_status.last_schedule_run = {
             "name": schedule_name,
             "message": "Success"
@@ -120,6 +122,7 @@ async def run_schedule(schedule_name: str = None) -> Dict[str, Any]:
         
         # Check if there are zones to run
         if no_zones:
+            logger.info(f"No zones scheduled for today")
             return {
                 "message": "No zones scheduled for today",
                 "zones": []

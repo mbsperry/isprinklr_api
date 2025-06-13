@@ -77,6 +77,7 @@ async def set_active_schedule(schedule_name: str) -> Dict[str, Any]:
         schedule = schedule_database.get_schedule(schedule_name)
         schedule_database.active_schedule = schedule_name
         schedule_database.write_schedule_file()
+        logger.info(f"Successfully set active schedule to '{schedule_name}'")
         return {"message": "Success", "active_schedule": schedule}
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
@@ -104,6 +105,7 @@ async def create_schedule(schedule: Schedule) -> Dict[str, Any]:
     """
     try:
         created_schedule = schedule_database.add_schedule(schedule)
+        logger.info(f"Successfully created schedule '{schedule.schedule_name}' with {len(schedule.schedule_items)} items")
         return {"message": "Success", "schedule": created_schedule}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -131,6 +133,7 @@ async def update_schedule(schedule: Schedule) -> Dict[str, Any]:
     """
     try:
         updated_schedule = schedule_database.update_schedule(schedule)
+        logger.info(f"Successfully updated schedule '{schedule.schedule_name}': {schedule.schedule_items}")
         return {"message": "Success", "schedule": updated_schedule}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -153,6 +156,7 @@ async def delete_schedule(schedule_name: str) -> Dict[str, str]:
     """
     try:
         schedule_database.delete_schedule(schedule_name)
+        logger.info(f"Successfully deleted schedule '{schedule_name}'")
         return {"message": "Success"}
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
@@ -186,6 +190,7 @@ async def update_schedule_on_off(schedule_on_off: bool) -> Dict[str, bool]:
     """
     try:
         system_status.schedule_on_off = schedule_on_off
+        logger.info(f"Successfully {'enabled' if schedule_on_off else 'disabled'} automated scheduling")
         return {"schedule_on_off": system_status.schedule_on_off}
     except Exception as exc:
         logger.error(f"Failed to update schedule on/off: {exc}")
@@ -211,6 +216,7 @@ async def run_schedule(schedule_name: str) -> Dict[str, Any]:
     try:
         # Use the scheduler_manager to handle all schedule execution
         result = await manager_run_schedule(schedule_name)
+        logger.info(f"Successfully started schedule '{schedule_name}'")
         return result
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
@@ -239,6 +245,7 @@ async def run_active_schedule() -> Dict[str, Any]:
         # Use the scheduler_manager to handle all schedule execution
         # Pass None to run the active schedule
         result = await manager_run_schedule()
+        logger.info("Successfully started active schedule")
         return result
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))

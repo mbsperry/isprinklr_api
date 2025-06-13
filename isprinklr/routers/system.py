@@ -136,7 +136,7 @@ async def update_config(config: ApiConfig):
         
         updated_config = system_status.update_api_config(config_dict)
         
-        # Return the updated configuration
+        logger.info(f"Successfully updated API configuration: {updated_config}")
         return updated_config
     except ValueError as exc:
         # This captures validation errors from Pydantic

@@ -273,8 +273,6 @@ class SystemStatus:
         duration = 0
         if self._status == "active" and self._end_time is not None:
             duration = int(max(0, self._end_time - time.time()))
-
-        logger.debug(f"System status: {self._status}, message: {self._status_message}, active zone: {self._active_zone}, duration: {duration}")
         
         status_data = {
             "systemStatus": self._status,
