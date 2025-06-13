@@ -10,6 +10,7 @@ DOMAIN = "localhost"
 
 from isprinklr.paths import logs_path, data_path, config_path
 
+# Set up with default DEBUG level initially - will be updated after reading config
 logging.basicConfig(handlers=[RotatingFileHandler(logs_path + '/api.log', maxBytes=1024*1024, backupCount=1, mode='a')],
                     format='%(asctime)s %(name)s %(levelname)s: %(message)s', datefmt='%m-%d-%Y %H:%M:%S',
                     level=logging.DEBUG)
@@ -74,9 +75,15 @@ except Exception as e:
     DOMAIN = "localhost"
     USE_STRICT_CORS = False
 
-from isprinklr.system_status import system_status, schedule_database
+from isprinklr.system_status import system_status, schedule_database, LOG_LEVEL
 from isprinklr.system_controller import system_controller
 from isprinklr.routers import scheduler, system, sprinklers, logs
+
+# Update root logger level based on the configured log level in api.conf
+if LOG_LEVEL in logging._nameToLevel:
+    root_logger = logging.getLogger()
+    root_logger.setLevel(getattr(logging, LOG_LEVEL))
+    logger.info(f"Root logger level set to {LOG_LEVEL}")
 
 # Define lifespan context manager for startup/shutdown events
 @asynccontextmanager

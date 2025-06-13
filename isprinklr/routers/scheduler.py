@@ -133,7 +133,7 @@ async def update_schedule(schedule: Schedule) -> Dict[str, Any]:
     """
     try:
         updated_schedule = schedule_database.update_schedule(schedule)
-        logger.info(f"Successfully updated schedule '{schedule.schedule_name}': {schedule.schedule_items}")
+        logger.info(f"Successfully updated schedule '{schedule['schedule_name']}': {updated_schedule}")
         return {"message": "Success", "schedule": updated_schedule}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))

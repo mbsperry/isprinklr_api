@@ -30,11 +30,11 @@ Returns:
 
 Raises:
 * HTTPException:
-  * 400: If lines parameter is outside valid range (1-200)
+  * 400: If lines parameter is outside valid range (1-1000)
   * 404: If log file is not found
   * 500: If log file cannot be read
     """
-    if lines < 0 or lines > 200:
+    if lines < 0 or lines > 1000:
         raise HTTPException(status_code=400, detail="Invalid number of lines")
     try:
         with open(logs_path + "/api.log", "r") as f:
