@@ -1,12 +1,14 @@
 import os, logging, json
 from logging.handlers import RotatingFileHandler
 from fastapi import FastAPI, Depends
+
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 
 # defaults
 USE_STRICT_CORS = False
 DOMAIN = "localhost" 
+
 
 from isprinklr.paths import logs_path, data_path, config_path
 
@@ -140,6 +142,15 @@ app.add_middleware(
     allow_credentials=False if "*" in allowed_origins else True,  # Must be False when allow_origins=["*"]
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+)
+
+# Add CORS middleware to allow requests from the frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://isprinklr.lan:3000"],  # Frontend origin
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["*"],  # Allow all headers
 )
 
 app.include_router(scheduler.router)
