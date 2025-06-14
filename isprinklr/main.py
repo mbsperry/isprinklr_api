@@ -144,15 +144,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Add CORS middleware to allow requests from the frontend
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://isprinklr.lan:3000"],  # Frontend origin
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["*"],  # Allow all headers
-)
-
 app.include_router(scheduler.router)
 app.include_router(system.router)
 app.include_router(sprinklers.router)
