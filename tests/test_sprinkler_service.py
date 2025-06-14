@@ -10,6 +10,10 @@ from isprinklr.paths import logs_path
 import isprinklr.sprinkler_service
 from isprinklr.schemas import SprinklerConfig # For type hinting if needed
 
+# Ensure logs directory exists before configuring logging
+if not os.path.exists(logs_path):
+    os.makedirs(logs_path)
+
 logging.basicConfig(handlers=[RotatingFileHandler(os.path.join(logs_path, 'test.log'), maxBytes=1024*1024, backupCount=1, mode='a')], # Used os.path.join
                     datefmt='%m-%d-%Y %H:%M:%S',
                     level=logging.DEBUG)

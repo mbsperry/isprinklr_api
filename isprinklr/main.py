@@ -12,15 +12,15 @@ DOMAIN = "localhost"
 
 from isprinklr.paths import logs_path, data_path, config_path
 
+# check to see if logs directory exists, if not create it
+if not os.path.exists(logs_path):
+    os.makedirs(logs_path)
+
 # Set up with default DEBUG level initially - will be updated after reading config
 logging.basicConfig(handlers=[RotatingFileHandler(logs_path + '/api.log', maxBytes=1024*1024, backupCount=1, mode='a')],
                     format='%(asctime)s %(name)s %(levelname)s: %(message)s', datefmt='%m-%d-%Y %H:%M:%S',
                     level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-
-# check to see if logs directory exists, if not create it
-if not os.path.exists(logs_path):
-    os.makedirs(logs_path)
 
 # check to see if data directory exists, if not create it
 if not os.path.exists(data_path):

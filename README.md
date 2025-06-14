@@ -2,7 +2,7 @@
 
 iSprinklr uses an ESP32 to control a Hunter Pro-c sprinkler system.
 
-![Version](https://img.shields.io/badge/version-2.1.0-blue)
+![Version](https://img.shields.io/badge/version-2.1.1-blue)
 
 There are 3 components:
 - iSprinklr_esp (https://github.com/mbsperry/isprinklr_esp) is the ESP32 controller which has a very simple REST API for turning the sprinkler system on/off

@@ -8,7 +8,14 @@ from isprinklr.main import app
 
 client = TestClient(app)
 
-def test_get_sprinklers():
+def test_get_sprinklers(mocker):
+    # Mock the system_status._sprinklers attribute to return test data
+    test_sprinklers: List[SprinklerConfig] = [
+        {"zone": 1, "name": "Front Lawn"},
+        {"zone": 2, "name": "Back Lawn"}
+    ]
+    mocker.patch('isprinklr.routers.sprinklers.system_status._sprinklers', test_sprinklers)
+    
     response = client.get("/api/sprinklers")
     assert response.status_code == 200
     sprinklers: List[SprinklerConfig] = response.json()

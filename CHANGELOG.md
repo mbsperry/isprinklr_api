@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1] - 2025-06-14
+
+### Bug Fixes
+- **Fixed test failures in fresh install**: Resolved `FileNotFoundError` exceptions that occurred when the `logs` directory didn't exist by checking for and creating logs directory as needed
+- **Enhanced test dependencies**: Added missing `pytest-asyncio` and `pytest-mock` dependencies to requirements.txt
+- **Fixed test mocking issues**: Corrected sprinklers route test to properly mock data instead of accessing non-existent files
+
 ## [2.1.0] - 2025-06-13
 
 ### Major Changes

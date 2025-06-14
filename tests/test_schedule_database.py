@@ -6,6 +6,10 @@ from context import isprinklr
 from isprinklr.paths import logs_path
 from isprinklr.schedule_database import ScheduleDatabase
 
+# Ensure logs directory exists before configuring logging
+if not os.path.exists(logs_path):
+    os.makedirs(logs_path)
+
 logging.basicConfig(handlers=[RotatingFileHandler(logs_path + '/test.log', maxBytes=1024*1024, backupCount=1, mode='a')],
                     datefmt='%m-%d-%Y %H:%M:%S',
                     level=logging.DEBUG)
