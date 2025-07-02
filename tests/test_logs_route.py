@@ -74,6 +74,12 @@ def test_get_logs_with_start_date():
         assert len(logs) == 3  # Only logs from Sept 13 onwards
         assert "09-13-2024" in logs[0]
 
+def test_get_logs_with_lines_and_date():
+    with patch("builtins.open", mock_open(read_data=SAMPLE_LOGS)):
+        response = client.get("/api/logs?start_date=2024-09-12&lines=2")
+        assert response.status_code == 400
+        assert response.json() == {"detail": "lines parameter cannot be used with date filtering"}
+
 def test_get_logs_with_date_range():
     with patch("builtins.open", mock_open(read_data=SAMPLE_LOGS)):
         response = client.get("/api/logs?start_date=2024-09-12&end_date=2024-09-14")

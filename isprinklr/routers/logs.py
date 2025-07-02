@@ -78,6 +78,10 @@ Raises:
   * 404: If log file is not found
   * 500: If log file cannot be read
     """
+    # Validate parameters
+    if (start_date or end_date) and lines != 100:
+        raise HTTPException(status_code=400, detail="lines parameter cannot be used with date filtering")
+        
     if lines < 0 or lines > 1000:
         raise HTTPException(status_code=400, detail="Invalid number of lines")
 
@@ -109,7 +113,8 @@ Raises:
                     if debug_level and debug_level not in parts[3]:
                         continue
                     filtered_lines.append(line)
-            return filtered_lines[-lines:]
+            # Apply lines limit only when no date range is specified
+            return filtered_lines[-lines:] if not (start_date or end_date) else filtered_lines
     except FileNotFoundError:
         logger.error("API Log file not found")
         raise HTTPException(status_code=404, detail="Log file not found")
